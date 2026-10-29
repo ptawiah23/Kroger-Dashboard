@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fleet Maintenance Intelligence Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest" defer></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: {
+        'brand-bg': '#0E1117',
+        'brand-sidebar': '#161B22',
+        'brand-card': '#1C2333',
+        'brand-accent': '#00B4D8',
+        'brand-accent2': '#F59E0B',
+        'brand-text': '#F0F6FC',
+        'brand-muted': '#8B949E',
+        'brand-border': '#30363D',
+        'brand-nav': '#161B22',
+      }
+    }
+  }
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #0E1117; --sidebar: #161B22; --card: #1C2333; --accent: #00B4D8;
+  --accent2: #F59E0B; --text: #F0F6FC; --muted: #8B949E; --border: #30363D;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.gradient-bar { height: 3px; background: linear-gradient(90deg, #00B4D8, #0077B6, #00B4D8); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; transition: transform 0.2s, box-shadow 0.2s; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,180,216,0.08); }
+.page-content { opacity: 1; transition: opacity 0.3s ease; }
+.page-content.fade { opacity: 0; }
+.sidebar-btn { width: 100%; text-align: left; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+.sidebar-btn:hover { background: rgba(0,180,216,0.08); color: var(--text); }
+.sidebar-btn.active { background: rgba(0,180,216,0.15); color: #00B4D8; border-left: 3px solid #00B4D8; }
+.filter-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 4px; }
+.filter-input { width: 100%; background: #0E1117; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text); font-size: 12px; outline: none; }
+.filter-input:focus { border-color: var(--accent); }
+.filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; padding: 2px 0; }
+.filter-checkbox input[type="checkbox"], .filter-checkbox input[type="radio"] { accent-color: #00B4D8; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; }
+.badge-cyan { background: rgba(0,180,216,0.15); color: #00B4D8; }
+.badge-amber { background: rgba(245,158,11,0.15); color: #F59E0B; }
+.badge-green { background: rgba(52,211,153,0.15); color: #34D399; }
+.badge-red { background: rgba(248,113,113,0.15); color: #F87171; }
+.badge-purple { background: rgba(167,139,250,0.15); color: #A78BFA; }
+.chart-container { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+.timeline-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.timeline-line { width: 2px; background: var(--border); flex-shrink: 0; margin-left: 5px; }
+.heatmap-cell { padding: 4px; text-align: center; font-size: 10px; border-radius: 4px; min-width: 40px; }
+table.data-table { width: 100%; border-collapse: collapse; }
+table.data-table th { background: rgba(0,180,216,0.06); padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); cursor: pointer; white-space: nowrap; border-bottom: 1px solid var(--border); }
+table.data-table td { padding: 8px 12px; font-size: 12px; color: var(--text); border-bottom: 1px solid rgba(48,54,61,0.5); }
+table.data-table tr:hover td { background: rgba(0,180,216,0.03); }
+.risk-high { background: rgba(248,113,113,0.2); color: #F87171; }
+.risk-medium { background: rgba(245,158,11,0.2); color: #F59E0B; }
+.risk-low { background: rgba(52,211,153,0.2); color: #34D399; }
+.mileage-band-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.mileage-band-btn:hover { border-color: var(--accent); color: var(--text); }
+.mileage-band-btn.active { background: rgba(0,180,216,0.15); border-color: #00B4D8; color: #00B4D8; }
+#sidebar { transition: transform 0.3s; }
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); position: fixed; z-index: 50; }
+  #sidebar.open { transform: translateX(0); }
+  #main-content { margin-left: 0 !important; }
+}
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 55; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 16px; }
+.modal-card { background: #1C2333; border: 1px solid #30363D; border-radius: 16px; max-width: 800px; width: 100%; padding: 0; box-shadow: 0 25px 50px rgba(0,0,0,0.5); position: relative; }
+.modal-gradient { height: 3px; border-radius: 16px 16px 0 0; background: linear-gradient(90deg, #00B4D8, #0077B6, #00B4D8); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+.form-input { width: 100%; background: #0E1117; border: 1px solid #30363D; border-radius: 8px; padding: 8px 12px; color: #F0F6FC; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.form-input:focus { border-color: #00B4D8; }
+.form-input.error { border-color: #F87171; }
+.form-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8B949E; margin-bottom: 4px; display: block; }
+.toggle-btn { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #30363D; background: transparent; color: #8B949E; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; }
+.toggle-btn.selected { border-color: #00B4D8; background: rgba(0,180,216,0.15); color: #00B4D8; }
+.toast-container { position: fixed; bottom: 60px; right: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #1C2333; border: 1px solid #30363D; box-shadow: 0 8px 24px rgba(0,0,0,0.4); font-size: 13px; color: #F0F6FC; min-width: 300px; max-width: 420px; animation: toastIn 0.3s ease; }
+.toast.success { border-left: 4px solid #34D399; }
+.toast.error { border-left: 4px solid #F87171; }
+.toast.info { border-left: 4px solid #00B4D8; }
+.toast.warning { border-left: 4px solid #F59E0B; }
+@keyframes toastIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity:1; transform: translateX(0); } to { opacity:0; transform: translateX(40px); } }
+.drop-zone { border: 2px dashed #30363D; border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.drop-zone:hover, .drop-zone.drag-over { border-color: #00B4D8; background: rgba(0,180,216,0.05); }
+.tab-btn-import { padding: 8px 16px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; background: transparent; border: 1px solid transparent; border-bottom: none; color: #8B949E; cursor: pointer; transition: all 0.15s; }
+.tab-btn-import.active { background: #0E1117; border-color: #30363D; color: #00B4D8; }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; }
+.empty-state i, .empty-state .empty-icon { opacity: 0.2; margin-bottom: 16px; }
+.yoy-section-header { background: linear-gradient(135deg, #1C2333, #161B22); border: 1px solid #30363D; border-radius: 12px; padding: 16px 24px; }
+.insight-callout { background: rgba(0,180,216,0.06); border-left: 4px solid #00B4D8; border-radius: 8px; padding: 14px 18px; }
+.site-filter-select { background: #0E1117; border: 1px solid #30363D; border-radius: 8px; padding: 6px 10px; color: #F0F6FC; font-size: 12px; font-weight: 600; outline: none; cursor: pointer; transition: border-color 0.15s; }
+.site-filter-select:focus { border-color: #00B4D8; }
+.site-filter-select:hover { border-color: #00B4D8; }
+</style>
+</head>
+<body data-id="0" class="bg-brand-bg">
+<app-icon data-id="1" hidden data-icon="gauge" data-palette="Blue"></app-icon>
+
+<div data-id="2" class="gradient-bar"></div>
+
+<!-- TOAST CONTAINER -->
+<div data-id="3" id="toast-container" class="toast-container"></div>
+
+<!-- ADD INVOICE MODAL -->
+<div data-id="4" id="add-invoice-modal" class="modal-overlay" style="display:none">
+  <div data-id="5" class="modal-card">
+    <div data-id="6" class="modal-gradient"></div>
+    <div data-id="7" class="p-6 md:p-8">
+      <div data-id="8" class="flex items-center justify-between mb-1">
+        <h2 data-id="9" class="text-xl font-bold text-brand-text flex items-center gap-2"><i data-id="10" data-lucide="plus-circle" class="w-5 h-5 text-brand-accent"></i> <span data-id="11" id="modal-add-title">Add New Invoice</span></h2>
+        <button data-id="12" id="close-add-modal" class="p-2 text-brand-muted hover:text-brand-text transition"><i data-id="13" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p data-id="14" class="text-xs text-brand-muted mb-5">All fields marked <span data-id="15" class="text-red-400">*</span> are required</p>
+      <div data-id="16" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div data-id="17">
+          <label data-id="18" class="form-label">Invoice Number <span data-id="19" class="text-red-400">*</span></label>
+          <input data-id="20" type="text" class="form-input" id="add-inv-number" placeholder="INV-0001">
+          <p data-id="21" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-number">Invoice number is required</p>
+        </div>
+        <div data-id="22">
+          <label data-id="23" class="form-label">Invoice Date <span data-id="24" class="text-red-400">*</span></label>
+          <input data-id="25" type="date" class="form-input" id="add-inv-date" value="2026-07-31" min="2020-01-01" max="2035-12-31">
+          <p data-id="26" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-date">Date is required</p>
+        </div>
+        <!-- SITE LOCATION FIELD -->
+        <div data-id="27" class="md:col-span-2">
+          <label data-id="28" class="form-label">Site Location <span data-id="29" class="text-red-400">*</span></label>
+          <select data-id="30" class="form-input" id="add-inv-site">
+            <option data-id="31" value="">Select Site Location...</option>
+          </select>
+          <p data-id="32" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-site">Site location is required</p>
+        </div>
+        <!-- SERVICE TYPE - NEW FIELD -->
+        <div data-id="33" class="md:col-span-2">
+          <label data-id="34" class="form-label">Service Type <span data-id="35" class="text-red-400">*</span></label>
+          <div data-id="36" class="flex gap-2">
+            <button data-id="37" class="toggle-btn" id="toggle-service-vendor" data-val="Vendor"><i data-id="38" data-lucide="building-2" class="w-4 h-4 inline"></i> Vendor</button>
+            <button data-id="39" class="toggle-btn" id="toggle-service-inhouse" data-val="In-House"><i data-id="40" data-lucide="wrench" class="w-4 h-4 inline"></i> In-House</button>
+          </div>
+          <p data-id="41" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-service-type">Service type is required</p>
+        </div>
+        <div data-id="42">
+          <label data-id="43" class="form-label">Unit Number <span data-id="44" class="text-red-400">*</span></label>
+          <input data-id="45" type="text" list="unit-datalist" class="form-input" id="add-inv-unit" placeholder="e.g. K124001">
+          <datalist data-id="46" id="unit-datalist"></datalist>
+          <p data-id="47" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-unit">Unit number is required</p>
+        </div>
+        <div data-id="48">
+          <label data-id="49" class="form-label">Vehicle Year</label>
+          <input data-id="50" type="text" class="form-input" id="add-inv-year" placeholder="Auto-detected" style="opacity:0.7;cursor:default">
+          <p data-id="51" class="text-[10px] text-brand-muted mt-1" id="year-hint">Auto-detected from unit prefix (K120=2020…K127=2027). Edit if needed.</p>
+        </div>
+        <div data-id="52">
+          <label data-id="53" class="form-label">Mileage <span data-id="54" class="text-red-400">*</span></label>
+          <input data-id="55" type="number" class="form-input" id="add-inv-mileage" min="0" placeholder="e.g. 85000">
+          <p data-id="56" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-mileage">Mileage is required</p>
+        </div>
+        <div data-id="57">
+          <label data-id="58" class="form-label">Repair Cost ($) <span data-id="59" class="text-red-400">*</span></label>
+          <input data-id="60" type="number" class="form-input" id="add-inv-cost" min="0" step="0.01" placeholder="0.00">
+          <p data-id="61" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-cost">Cost is required</p>
+        </div>
+        <div data-id="62" class="md:col-span-2">
+          <label data-id="63" class="form-label">Repair Category <span data-id="64" class="text-red-400">*</span></label>
+          <select data-id="65" class="form-input" id="add-inv-category">
+            <option data-id="66" value="">-- Select Category --</option>
+          </select>
+          <p data-id="67" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-category">Category is required</p>
+        </div>
+        <div data-id="68" class="md:col-span-2">
+          <label data-id="69" class="form-label">Repair Description <span data-id="70" class="text-red-400">*</span></label>
+          <input data-id="71" type="text" class="form-input" id="add-inv-desc" placeholder="e.g. Oil Change & Filter Replacement">
+          <p data-id="72" class="text-[10px] text-red-400 mt-1 hidden" id="err-inv-desc">Description is required</p>
+        </div>
+        <div data-id="73">
+          <label data-id="74" class="form-label" id="vendor-field-label">Vendor Name</label>
+          <input data-id="75" type="text" list="vendor-datalist" class="form-input" id="add-inv-vendor" placeholder="e.g. FleetPro Services" autocomplete="off">
+          <datalist data-id="76" id="vendor-datalist"></datalist>
+        </div>
+        <div data-id="77">
+          <label data-id="78" class="form-label">Warranty Status <span data-id="79" class="text-red-400">*</span></label>
+          <div data-id="80" class="flex gap-2">
+            <button data-id="81" class="toggle-btn" id="toggle-warranty-yes" data-val="Warranty"><i data-id="82" data-lucide="shield-check" class="w-4 h-4 inline"></i> Warranty</button>
+            <button data-id="83" class="toggle-btn selected" id="toggle-warranty-no" data-val="Non-Warranty"><i data-id="84" data-lucide="shield-x" class="w-4 h-4 inline"></i> Non-Warranty</button>
+          </div>
+        </div>
+        <div data-id="85" class="md:col-span-2">
+          <label data-id="86" class="form-label">PM Status <span data-id="87" class="text-red-400">*</span></label>
+          <div data-id="88" class="flex gap-2">
+            <button data-id="89" class="toggle-btn" id="toggle-pm-yes" data-val="PM"><i data-id="90" data-lucide="wrench" class="w-4 h-4 inline"></i> PM Service</button>
+            <button data-id="91" class="toggle-btn selected" id="toggle-pm-no" data-val="Non-PM"><i data-id="92" data-lucide="settings" class="w-4 h-4 inline"></i> Non-PM</button>
+          </div>
+        </div>
+      </div>
+      <div data-id="93" class="flex flex-wrap gap-3 mt-6">
+        <button data-id="94" id="btn-save-invoice" class="flex-1 min-w-[160px] py-3 rounded-lg text-sm font-bold bg-brand-accent text-brand-bg hover:opacity-90 transition flex items-center justify-center gap-2"><i data-id="95" data-lucide="save" class="w-4 h-4"></i> Save Invoice</button>
+        <button data-id="96" id="btn-save-add-another" class="flex-1 min-w-[160px] py-3 rounded-lg text-sm font-bold border border-brand-accent text-brand-accent hover:bg-brand-accent/10 transition flex items-center justify-center gap-2"><i data-id="97" data-lucide="plus" class="w-4 h-4"></i> Save & Add Another</button>
+        <button data-id="98" id="btn-cancel-add" class="py-3 px-6 rounded-lg text-sm font-medium text-brand-muted hover:text-brand-text transition">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CSV IMPORT MODAL -->
+<div data-id="99" id="import-csv-modal" class="modal-overlay" style="display:none">
+  <div data-id="100" class="modal-card">
+    <div data-id="101" class="modal-gradient"></div>
+    <div data-id="102" class="p-6 md:p-8">
+      <div data-id="103" class="flex items-center justify-between mb-1">
+        <h2 data-id="104" class="text-xl font-bold text-brand-text flex items-center gap-2"><i data-id="105" data-lucide="upload" class="w-5 h-5 text-brand-accent"></i> Import Invoices from CSV</h2>
+        <button data-id="106" id="close-import-modal" class="p-2 text-brand-muted hover:text-brand-text transition"><i data-id="107" data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p data-id="108" class="text-xs text-brand-muted mb-4">Upload or paste CSV data to bulk-import invoices</p>
+      <div data-id="109" class="mb-4">
+        <p data-id="110" class="form-label mb-2">Step 1 — Download Template</p>
+        <button data-id="111" id="btn-download-template" class="px-4 py-2 rounded-lg text-sm font-semibold border border-brand-border text-brand-text hover:border-brand-accent transition flex items-center gap-2 w-fit"><i data-id="112" data-lucide="download" class="w-4 h-4"></i> Download CSV Template</button>
+      </div>
+      <div data-id="113" class="mb-4">
+        <p data-id="114" class="form-label mb-2">Step 2 — Upload or Paste</p>
+        <div data-id="115" class="flex gap-0 mb-2">
+          <button data-id="116" class="tab-btn-import active" id="tab-upload-file" data-tab="upload">Upload File</button>
+          <button data-id="117" class="tab-btn-import" id="tab-paste-csv" data-tab="paste">Paste CSV</button>
+        </div>
+        <div data-id="118" id="import-tab-upload">
+          <div data-id="119" class="drop-zone" id="csv-drop-zone">
+            <i data-id="120" data-lucide="file-up" class="w-10 h-10 text-brand-muted mx-auto mb-2"></i>
+            <p data-id="121" class="text-sm text-brand-muted">Drag & drop your CSV file here, or click to browse</p>
+            <input data-id="122" type="file" accept=".csv" id="csv-file-input" class="hidden">
+          </div>
+        </div>
+        <div data-id="123" id="import-tab-paste" class="hidden">
+          <textarea data-id="124" id="csv-paste-area" class="form-input h-40 font-mono text-xs" placeholder="Invoice Number,Unit Number,Invoice Date,Mileage,Repair Description,Repair Category,Repair Cost,Vendor,Service Type,Warranty Status,PM Status,Site Location&#10;INV-0001,K124001,2026-07-20,55000,Oil Change,Oil Service,350,FleetPro Services,Vendor,Non-Warranty,PM,FC01 Monroe"></textarea>
+          <button data-id="125" id="btn-parse-pasted" class="mt-2 px-4 py-2 rounded-lg text-sm font-semibold bg-brand-accent text-brand-bg hover:opacity-90 transition">Parse CSV</button>
+        </div>
+      </div>
+      <div data-id="126" id="import-preview" class="hidden">
+        <p data-id="127" class="form-label mb-2">Step 3 — Preview & Validate</p>
+        <div data-id="128" id="import-summary" class="mb-2"></div>
+        <div data-id="129" class="overflow-x-auto max-h-[240px] overflow-y-auto mb-3">
+          <table data-id="130" class="data-table" id="import-preview-table">
+            <thead data-id="131"><tr data-id="132"><th data-id="133">Status</th><th data-id="134">Invoice #</th><th data-id="135">Unit</th><th data-id="136">Date</th><th data-id="137">Mileage</th><th data-id="138">Category</th><th data-id="139" class="text-right">Cost</th><th data-id="140">Site</th></tr></thead>
+            <tbody data-id="141" id="import-preview-body"></tbody>
+          </table>
+        </div>
+        <button data-id="142" id="btn-import-records" class="w-full py-3 rounded-lg text-sm font-bold bg-brand-accent text-brand-bg hover:opacity-90 transition flex items-center justify-center gap-2"><i data-id="143" data-lucide="upload" class="w-4 h-4"></i> Import Records</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div data-id="144" id="confirm-dialog" class="modal-overlay" style="display:none">
+  <div data-id="145" class="modal-card" style="max-width:460px">
+    <div data-id="146" class="modal-gradient"></div>
+    <div data-id="147" class="p-6">
+      <p data-id="148" class="text-lg font-bold mb-2" id="confirm-title">Are you sure?</p>
+      <p data-id="149" class="text-sm text-brand-muted mb-5" id="confirm-msg"></p>
+      <div data-id="150" class="flex gap-3">
+        <button data-id="151" id="confirm-yes" class="flex-1 py-2 rounded-lg text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition">Yes, Delete</button>
+        <button data-id="152" id="confirm-no" class="flex-1 py-2 rounded-lg text-sm font-semibold border border-brand-border text-brand-muted hover:text-brand-text transition">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOP NAVBAR -->
+<nav data-id="153" class="bg-brand-nav border-b border-brand-border px-4 py-2 flex items-center justify-between sticky top-0 z-40" style="top:3px">
+  <div data-id="154" class="flex items-center gap-3">
+    <button data-id="155" id="mobile-menu-btn" class="md:hidden p-2 text-brand-muted">
+      <i data-id="156" data-lucide="menu" class="w-5 h-5"></i>
+    </button>
+    <div data-id="157" class="flex items-center gap-2">
+      <i data-id="158" data-lucide="gauge" class="w-6 h-6 text-brand-accent"></i>
+      <div data-id="159">
+        <h1 data-id="160" class="text-sm md:text-base font-bold text-brand-text leading-tight">Fleet Maintenance Intelligence</h1>
+        <p data-id="161" class="text-[10px] text-brand-muted leading-tight">Transportation Management System</p>
+      </div>
+    </div>
+  </div>
+  <div data-id="162" class="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
+    <!-- GLOBAL SITE FILTER -->
+    <div data-id="163" class="flex items-center gap-1">
+      <i data-id="164" data-lucide="map-pin" class="w-4 h-4 text-brand-accent hidden sm:block"></i>
+      <select data-id="165" id="global-site-filter" class="site-filter-select">
+        <option data-id="166" value="All">All Sites</option>
+      </select>
+    </div>
+    <button data-id="167" id="btn-open-add" class="px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-brand-accent text-brand-bg hover:opacity-90 transition flex items-center gap-1"><i data-id="168" data-lucide="plus" class="w-4 h-4"></i><span data-id="169" class="hidden sm:inline"> Add Invoice</span></button>
+    <button data-id="170" id="btn-open-import" class="px-3 py-2 rounded-lg text-xs md:text-sm font-semibold border border-brand-border text-brand-text hover:border-brand-accent transition flex items-center gap-1"><i data-id="171" data-lucide="upload" class="w-4 h-4"></i><span data-id="172" class="hidden sm:inline"> Import CSV</span></button>
+    <button data-id="173" id="btn-export-csv" class="px-3 py-2 rounded-lg text-xs md:text-sm font-semibold border border-brand-border text-brand-text hover:border-brand-accent transition flex items-center gap-1"><i data-id="174" data-lucide="download" class="w-4 h-4 text-brand-accent2"></i><span data-id="175" class="hidden sm:inline"> Export CSV</span></button>
+    <button id="btn-export-site" title="Export this site's invoices as a data file to share with supervisor" class="px-3 py-2 rounded-lg text-xs md:text-sm font-semibold border border-brand-accent text-brand-accent hover:bg-brand-accent hover:text-brand-bg transition flex items-center gap-1"><i data-lucide="share-2" class="w-4 h-4"></i><span class="hidden sm:inline"> Export My Data</span></button>
+    <button id="btn-import-site" title="Import data files from other FC sites to see all sites combined" class="px-3 py-2 rounded-lg text-xs md:text-sm font-semibold border border-brand-accent2 text-brand-accent2 hover:bg-brand-accent2 hover:text-brand-bg transition flex items-center gap-1"><i data-lucide="folder-down" class="w-4 h-4"></i><span class="hidden sm:inline"> Import Sites</span></button>
+    <input type="file" id="site-data-file-input" accept=".json" multiple style="display:none">
+    <span data-id="176" class="hidden lg:block text-xs text-brand-muted" id="nav-date"></span>
+    <span data-id="177" class="hidden md:inline badge badge-cyan text-[9px]" id="record-counter" style="max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">No data yet</span>
+  </div>
+</nav>
+
+<!-- LAYOUT -->
+<div data-id="178" class="flex" style="min-height: calc(100vh - 44px);">
+
+<!-- SIDEBAR -->
+<aside data-id="179" id="sidebar" class="fixed top-[47px] left-0 bottom-0 w-[220px] bg-brand-sidebar border-r border-brand-border overflow-y-auto pb-20 z-30 hidden md:block" style="scrollbar-width:thin">
+  <div data-id="180" class="p-3">
+    <div data-id="181" class="flex items-center justify-between mb-3">
+      <p data-id="182" class="text-[10px] font-bold uppercase tracking-widest text-brand-muted">Filters & Navigation</p>
+      <button data-id="183" id="sidebar-close" class="md:hidden text-brand-muted"><i data-id="184" data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div data-id="185" class="space-y-1 mb-2">
+      <button data-id="186" class="sidebar-btn active" data-page="overview"><i data-id="187" data-lucide="bar-chart-3" class="w-4 h-4"></i> Fleet Overview</button>
+      <button data-id="188" class="sidebar-btn" data-page="unit-history"><i data-id="189" data-lucide="truck" class="w-4 h-4"></i> Unit History</button>
+      <button data-id="190" class="sidebar-btn" data-page="mileage"><i data-id="191" data-lucide="ruler" class="w-4 h-4"></i> Mileage Analysis</button>
+      <button data-id="192" class="sidebar-btn" data-page="predictive"><i data-id="193" data-lucide="sparkles" class="w-4 h-4"></i> Predictive Maint.</button>
+      <button data-id="194" class="sidebar-btn" data-page="reliability"><i data-id="195" data-lucide="trophy" class="w-4 h-4"></i> Fleet Reliability</button>
+    </div>
+    <div data-id="196" class="border-t border-brand-border pt-2 mb-2">
+      <button data-id="197" class="sidebar-btn" data-page="manage-data"><i data-id="198" data-lucide="database" class="w-4 h-4"></i> Manage Data</button>
+    </div>
+    <div data-id="199" class="border-t border-brand-border pt-3 space-y-3">
+      <div data-id="200">
+        <p data-id="201" class="filter-label">Vehicle Year</p>
+        <div data-id="202" class="space-y-1" id="filter-year-group"></div>
+      </div>
+      <div data-id="203">
+        <p data-id="204" class="filter-label">Date Range</p>
+        <input data-id="205" type="date" class="filter-input mb-1" id="filter-date-start" value="2020-01-01" min="2020-01-01" max="2035-12-31">
+        <input data-id="206" type="date" class="filter-input" id="filter-date-end" value="2035-12-31" min="2020-01-01" max="2035-12-31">
+      </div>
+      <div data-id="207">
+        <p data-id="208" class="filter-label">Repair Category</p>
+        <div data-id="209" class="space-y-1 max-h-[180px] overflow-y-auto" id="filter-category-group"></div>
+      </div>
+      <div data-id="210">
+        <p data-id="211" class="filter-label">Warranty Status</p>
+        <div data-id="212" class="space-y-1" id="filter-warranty-group">
+          <label data-id="213" class="filter-checkbox"><input data-id="214" type="radio" name="warranty" value="All" checked> All</label>
+          <label data-id="215" class="filter-checkbox"><input data-id="216" type="radio" name="warranty" value="Warranty"> Warranty</label>
+          <label data-id="217" class="filter-checkbox"><input data-id="218" type="radio" name="warranty" value="Non-Warranty"> Non-Warranty</label>
+        </div>
+      </div>
+      <!-- SERVICE TYPE FILTER -->
+      <div data-id="219">
+        <p data-id="220" class="filter-label">Service Type</p>
+        <div data-id="221" class="space-y-1" id="filter-service-type-group">
+          <label data-id="222" class="filter-checkbox"><input data-id="223" type="radio" name="serviceType" value="All" checked> All</label>
+          <label data-id="224" class="filter-checkbox"><input data-id="225" type="radio" name="serviceType" value="Vendor"> Vendor</label>
+          <label data-id="226" class="filter-checkbox"><input data-id="227" type="radio" name="serviceType" value="In-House"> In-House</label>
+        </div>
+      </div>
+      <div data-id="228">
+        <p data-id="229" class="filter-label">PM Status</p>
+        <div data-id="230" class="space-y-1" id="filter-pm-group">
+          <label data-id="231" class="filter-checkbox"><input data-id="232" type="radio" name="pm" value="All" checked> All</label>
+          <label data-id="233" class="filter-checkbox"><input data-id="234" type="radio" name="pm" value="PM"> PM</label>
+          <label data-id="235" class="filter-checkbox"><input data-id="236" type="radio" name="pm" value="Non-PM"> Non-PM</label>
+        </div>
+      </div>
+      <div data-id="237">
+        <p data-id="238" class="filter-label">Vendor</p>
+        <select data-id="239" class="filter-input" id="filter-vendor">
+          <option data-id="240" value="All">All Vendors</option>
+        </select>
+      </div>
+      <button data-id="241" id="reset-filters" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold bg-red-900/30 text-red-400 border border-red-800/40 hover:bg-red-900/50 transition">Reset All Filters</button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main data-id="242" id="main-content" class="flex-1 md:ml-[220px] p-4 md:p-6 pb-20">
+  <div data-id="243" id="page-content" class="page-content"></div>
+</main>
+</div>
+
+<!-- FOOTER -->
+<footer data-id="244" class="fixed bottom-0 left-0 right-0 bg-brand-nav border-t border-brand-border py-2 px-4 text-center z-20">
+  <p data-id="245" class="text-[10px] text-brand-muted">Fleet Maintenance Intelligence Dashboard • Built for Transportation Managers • <span data-id="246" id="footer-stats">0 Vehicles | 0 Invoices</span> • Made by Copilot</p>
+</footer>
+
+<script>
+// ==================== SITE LOCATIONS (easy to update) ====================
+const SITE_LOCATIONS = [
+  { code: "FC01", name: "FC01 Monroe" },
+  { code: "FC211", name: "FC211 E Cinci Spoke" },
+  { code: "FC212", name: "FC212 Columbus Spoke" },
+  { code: "FC213", name: "FC213 Indianapolis Spoke" },
+  { code: "FC214", name: "FC214 Louisville Spoke" },
+  { code: "FC215", name: "FC215 MT Zion Spoke" }
+];
+const DEFAULT_SITE = "FC01 Monroe";
+
+// ==================== CONSTANTS ====================
+const CATEGORY_NAMES = ["Preventive Maintenance","Oil Service","Tires","Brakes","Battery","Electrical","Engine","Cooling System","Transmission","Suspension","HVAC","Other Mechanical"];
+const CATEGORY_DESCS = {
+  "Preventive Maintenance":["Preventive Maintenance Service","PM Inspection","Annual PM Check","DOT Inspection"],
+  "Oil Service":["Oil Change & Filter","Synthetic Oil Change","Oil Change - Full Service"],
+  "Tires":["Tire Rotation","Tire Replacement","Flat Tire Repair"],
+  "Brakes":["Brake Pad Replacement","Brake Drum Replacement","Brake Inspection"],
+  "Battery":["Battery Replacement","Battery Test & Replacement"],
+  "Electrical":["Alternator Replacement","Starter Motor Replacement","Wiring Harness Repair"],
+  "Engine":["Engine Tune-Up","Fuel Injector Cleaning","Engine Diagnostic"],
+  "Cooling System":["Radiator Flush & Fill","Thermostat Replacement","Water Pump Replacement"],
+  "Transmission":["Transmission Service","Transmission Fluid Change","Clutch Replacement"],
+  "Suspension":["Shock Absorber Replacement","Alignment Service","Ball Joint Replacement"],
+  "HVAC":["A/C Recharge","A/C Compressor Replacement","Heater Core Repair"],
+  "Other Mechanical":["Fuel System Cleaning","Exhaust System Repair","Mirror Replacement"]
+};
+const PM_CATEGORIES = ["Preventive Maintenance","Oil Service"];
+const CHART_COLORS = ['#00B4D8','#F59E0B','#34D399','#F87171','#A78BFA','#FB923C','#60A5FA','#4ADE80','#E879F9','#FCD34D','#F472B6','#94A3B8'];
+const ALL_YEARS_RANGE = [2020,2021,2022,2023,2024,2025,2026,2027];
+const MILEAGE_BANDS = [
+  {label:"0–10K",min:0,max:10000},{label:"10K–20K",min:10001,max:20000},{label:"20K–30K",min:20001,max:30000},
+  {label:"30K–40K",min:30001,max:40000},{label:"40K–50K",min:40001,max:50000},{label:"50K–60K",min:50001,max:60000},
+  {label:"60K–70K",min:60001,max:70000},{label:"70K–80K",min:70001,max:80000},{label:"80K–90K",min:80001,max:90000},
+  {label:"90K–100K",min:90001,max:100000},{label:"100K–120K",min:100001,max:120000},{label:"120K–140K",min:120001,max:140000},
+  {label:"140K–160K",min:140001,max:160000},{label:"160K–180K",min:160001,max:180000},{label:"180K–200K",min:180001,max:200000},
+  {label:"200K+",min:200001,max:999999}
+];
+const fmt = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtFull = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+const fmtNum = n => Number(n).toLocaleString();
+const fmtDate = d => { try { return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch(e) { return d; } };
+
+// ==================== DATA LAYER (localStorage) ====================
+const STORAGE_KEY = "fleet_maintenance_data";
+let ALL_INVOICES = [];
+
+async function loadInvoices() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    ALL_INVOICES = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(ALL_INVOICES)) ALL_INVOICES = [];
+    // Backfill siteLocation for existing invoices that don't have it
+    ALL_INVOICES.forEach(r => {
+      if (!r.siteLocation) r.siteLocation = DEFAULT_SITE;
+    });
+  } catch(e) {
+    console.warn("Failed to load:", e);
+    ALL_INVOICES = [];
+  }
+}
+
+function persistInvoices() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ALL_INVOICES));
+  } catch(e) {
+    showToast('Storage error — data may not persist.', 'error');
+  }
+}
+
+async function saveInvoice(invoice) {
+  // Ensure siteLocation is always set
+  if (!invoice.siteLocation) invoice.siteLocation = DEFAULT_SITE;
+  const idx = ALL_INVOICES.findIndex(r => r.id === invoice.id);
+  if (idx >= 0) { ALL_INVOICES[idx] = invoice; } else { ALL_INVOICES.push(invoice); }
+  persistInvoices();
+}
+
+async function deleteInvoiceById(id) {
+  ALL_INVOICES = ALL_INVOICES.filter(r => r.id !== id);
+  persistInvoices();
+}
+
+async function clearAllData() {
+  localStorage.removeItem(STORAGE_KEY);
+  ALL_INVOICES = [];
+}
+
+// ==================== HELPERS ====================
+function getVehicleYear(unitNumber) {
+  if (!unitNumber) return null;
+  const match = unitNumber.match(/[Kk]1(\d{2})/);
+  if (match) {
+    const yr = parseInt('20' + match[1]);
+    if (yr >= 2020 && yr <= 2027) return yr;
+  }
+  const m2 = unitNumber.match(/(\d{2})\d*/);
+  if (m2) {
+    const yr = parseInt('20' + m2[1]);
+    if (yr >= 2020 && yr <= 2027) return yr;
+  }
+  return null;
+}
+
+function getServiceType(r) {
+  return r.serviceType || 'Vendor';
+}
+
+function getSiteLocation(r) {
+  return r.siteLocation || DEFAULT_SITE;
+}
+
+function getMileageBand(miles) {
+  const m = parseInt(miles);
+  if (isNaN(m) || m <= 10000) return '0–10K';
+  if (m <= 20000) return '10K–20K';
+  if (m <= 30000) return '20K–30K';
+  if (m <= 40000) return '30K–40K';
+  if (m <= 50000) return '40K–50K';
+  if (m <= 60000) return '50K–60K';
+  if (m <= 70000) return '60K–70K';
+  if (m <= 80000) return '70K–80K';
+  if (m <= 90000) return '80K–90K';
+  if (m <= 100000) return '90K–100K';
+  if (m <= 120000) return '100K–120K';
+  if (m <= 140000) return '120K–140K';
+  if (m <= 160000) return '140K–160K';
+  if (m <= 180000) return '160K–180K';
+  if (m <= 200000) return '180K–200K';
+  return '200K+';
+}
+
+function generateId() { return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9); }
+
+function getNextInvoiceNumber() {
+  const n = ALL_INVOICES.length + 1;
+  return 'INV-' + String(n).padStart(4, '0');
+}
+
+function getAllUnits() { return [...new Set(ALL_INVOICES.map(r => r.unitNumber))].sort(); }
+function getAllVendors() { return [...new Set(ALL_INVOICES.map(r => r.vendor).filter(Boolean))].sort(); }
+function getAllYears() { return [...new Set(ALL_INVOICES.map(r => r.vehicleYear).filter(Boolean))].sort(); }
+
+function modeOf(arr) {
+  if (!arr.length) return null;
+  const freq = {}; arr.forEach(v => freq[v] = (freq[v] || 0) + 1);
+  return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+// ==================== TOAST ====================
+function showToast(message, type) {
+  type = type || 'success';
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  toast.innerHTML = '<span style="font-size:16px">' + (icons[type] || 'ℹ️') + '</span><span>' + message + '</span>';
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// ==================== STATE ====================
+const state = {
+  currentPage: 'overview',
+  filters: { years: [], dateStart: '2020-01-01', dateEnd: '2035-12-31', categories: [...CATEGORY_NAMES], warranty: 'All', pm: 'All', vendor: 'All', serviceType: 'All' },
+  globalSiteFilter: 'All',
+  selectedUnit: null,
+  selectedMileageBand: 'All',
+  predictiveUnit: null,
+  predictiveMileage: null,
+  editingInvoice: null
+};
+
+const chartInstances = {};
+function destroyCharts() { Object.keys(chartInstances).forEach(k => { if (chartInstances[k]) { chartInstances[k].destroy(); delete chartInstances[k]; } }); }
+
+// ==================== GLOBAL SITE-FILTERED DATA ====================
+// Returns all invoices filtered by the global site filter
+function getFilteredInvoices() {
+  if (state.globalSiteFilter === 'All') return ALL_INVOICES;
+  return ALL_INVOICES.filter(r => getSiteLocation(r) === state.globalSiteFilter);
+}
+
+// Returns invoices filtered by both global site filter AND sidebar filters
+function filteredData() {
+  return getFilteredInvoices().filter(r => {
+    if (state.filters.years.length > 0 && !state.filters.years.includes(r.vehicleYear)) return false;
+    if (r.date < state.filters.dateStart || r.date > state.filters.dateEnd) return false;
+    if (!state.filters.categories.includes(r.category)) return false;
+    if (state.filters.warranty !== 'All' && r.warrantyStatus !== state.filters.warranty) return false;
+    if (state.filters.pm !== 'All' && r.pmStatus !== state.filters.pm) return false;
+    if (state.filters.vendor !== 'All' && r.vendor !== state.filters.vendor) return false;
+    if (state.filters.serviceType !== 'All' && getServiceType(r) !== state.filters.serviceType) return false;
+    return true;
+  });
+}
+
+// ==================== COUNTERS ====================
+function updateRecordCounter() {
+  const el = document.getElementById('record-counter');
+  if (el) {
+    const siteData = getFilteredInvoices();
+    if (siteData.length === 0) {
+      el.textContent = 'No data yet';
+    } else {
+      const units = new Set(siteData.map(r => r.unitNumber)).size;
+      const vendorSpend = siteData.filter(r => getServiceType(r) === 'Vendor').reduce((s, r) => s + r.cost, 0);
+      const inhouseSpend = siteData.filter(r => getServiceType(r) === 'In-House').reduce((s, r) => s + r.cost, 0);
+      const siteLabel = state.globalSiteFilter !== 'All' ? ' [' + state.globalSiteFilter + ']' : '';
+      el.textContent = 'Total: ' + siteData.length + ' Invoices | ' + units + ' Units | Vendor: ' + fmt.format(vendorSpend) + ' | In-House: ' + fmt.format(inhouseSpend) + siteLabel;
+    }
+  }
+}
+function updateFooterStats() {
+  const el = document.getElementById('footer-stats');
+  if (el) {
+    const siteData = getFilteredInvoices();
+    const units = new Set(siteData.map(r => r.unitNumber)).size;
+    el.textContent = units + ' Vehicles | ' + siteData.length + ' Invoices Tracked';
+  }
+}
+
+// ==================== DYNAMIC FILTERS ====================
+function updateDynamicFilters() {
+  const yearGroup = document.getElementById('filter-year-group');
+  if (yearGroup) {
+    yearGroup.innerHTML = ALL_YEARS_RANGE.map(y => {
+      const checked = state.filters.years.length === 0 || state.filters.years.includes(y);
+      return '<label class="filter-checkbox"><input type="checkbox" value="' + y + '"' + (checked ? ' checked' : '') + '> ' + y + '</label>';
+    }).join('');
+    yearGroup.querySelectorAll('input').forEach(cb => {
+      cb.addEventListener('change', () => {
+        state.filters.years = [...yearGroup.querySelectorAll('input:checked')].map(c => parseInt(c.value));
+        if (state.filters.years.length === ALL_YEARS_RANGE.length) state.filters.years = [];
+        debounceApply();
+      });
+    });
+  }
+  const vendorSel = document.getElementById('filter-vendor');
+  if (vendorSel) {
+    const current = vendorSel.value;
+    const allV = getAllVendors();
+    vendorSel.innerHTML = '<option value="All">All Vendors</option>';
+    allV.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      vendorSel.appendChild(o);
+    });
+    vendorSel.value = allV.includes(current) ? current : 'All';
+  }
+}
+
+// ==================== POPULATE GLOBAL SITE FILTER ====================
+function populateGlobalSiteFilter() {
+  const sel = document.getElementById('global-site-filter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="All">All Sites</option>';
+  SITE_LOCATIONS.forEach(site => {
+    const o = document.createElement('option');
+    o.value = site.name;
+    o.textContent = site.name;
+    if (state.globalSiteFilter === site.name) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ==================== REFRESH ====================
+function refreshDashboard() {
+  updateRecordCounter();
+  updateFooterStats();
+  updateDynamicFilters();
+  renderCurrentPage();
+}
+
+// ==================== EMPTY STATE HTML ====================
+function emptyStateHTML(icon, title, subtitle, showAddBtn) {
+  return '<div class="empty-state"><i data-lucide="' + icon + '" class="w-16 h-16 text-brand-muted empty-icon"></i>' +
+    '<p class="text-lg font-semibold text-brand-text mb-1">' + title + '</p>' +
+    '<p class="text-sm text-brand-muted mb-4 max-w-md">' + subtitle + '</p>' +
+    (showAddBtn ? '<button class="empty-add-btn px-6 py-3 rounded-lg text-sm font-bold bg-brand-accent text-brand-bg hover:opacity-90 transition flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Invoice</button>' : '') +
+    '</div>';
+}
+
+// ==================== RENDER PAGES ====================
+function renderCurrentPage() {
+  destroyCharts();
+  const el = document.getElementById('page-content');
+  el.classList.add('fade');
+  setTimeout(() => {
+    switch (state.currentPage) {
+      case 'overview': renderOverview(el); break;
+      case 'unit-history': renderUnitHistory(el); break;
+      case 'mileage': renderMileage(el); break;
+      case 'predictive': renderPredictive(el); break;
+      case 'reliability': renderReliability(el); break;
+      case 'manage-data': renderManageData(el); break;
+    }
+    el.classList.remove('fade');
+    bindPageEvents();
+    renderCharts();
+    if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") lucide.createIcons();
+  }, 150);
+}
+
+function kpiCard(icon, label, value, sub, color) {
+  return '<div class="kpi-card"><div class="flex items-center gap-2 mb-1"><i data-lucide="' + icon + '" class="w-4 h-4 ' + color + '"></i><span class="text-[10px] text-brand-muted uppercase font-semibold tracking-wide">' + label + '</span></div><p class="text-xl md:text-2xl font-bold tabular-nums">' + value + '</p>' + (sub ? '<span class="badge badge-cyan mt-1">' + sub + '</span>' : '') + '</div>';
+}
+
+function renderOverview(el) {
+  const data = filteredData();
+  const totalSpend = data.reduce((s, r) => s + r.cost, 0);
+  const totalInv = data.length;
+  const totalUnits = new Set(data.map(r => r.unitNumber)).size;
+  const avgCost = totalInv ? totalSpend / totalInv : 0;
+  const pmCount = data.filter(r => r.pmStatus === 'PM').length;
+  const warCount = data.filter(r => r.warrantyStatus === 'Warranty').length;
+  const nwCount = data.filter(r => r.warrantyStatus === 'Non-Warranty').length;
+
+  let html = '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">' +
+    kpiCard('dollar-sign', 'Total Spend', fmt.format(totalSpend), '', 'text-brand-accent') +
+    kpiCard('file-text', 'Total Invoices', fmtNum(totalInv), '', 'text-brand-accent2') +
+    kpiCard('truck', 'Total Units', totalUnits, '', 'text-emerald-400') +
+    kpiCard('calculator', 'Avg Cost', fmt.format(avgCost), totalInv ? 'per invoice' : '', 'text-purple-400') +
+    kpiCard('wrench', 'PM Services', fmtNum(pmCount), totalInv ? ((pmCount / totalInv * 100) || 0).toFixed(0) + '%' : '', 'text-cyan-400') +
+    kpiCard('shield-check', 'Warranty', fmtNum(warCount), totalInv ? ((warCount / totalInv * 100) || 0).toFixed(0) + '%' : '', 'text-green-400') +
+    kpiCard('shield-x', 'Non-Warranty', fmtNum(nwCount), totalInv ? ((nwCount / totalInv * 100) || 0).toFixed(0) + '%' : '', 'text-red-400') +
+    '</div>';
+
+  const vendorSpend = data.filter(r => getServiceType(r) === 'Vendor').reduce((s, r) => s + r.cost, 0);
+  const inhouseSpend = data.filter(r => getServiceType(r) === 'In-House').reduce((s, r) => s + r.cost, 0);
+  const inhousePct = totalSpend > 0 ? ((inhouseSpend / totalSpend) * 100).toFixed(1) : '0.0';
+
+  html += '<div class="yoy-section-header mb-4"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">' +
+    '<div><p class="text-xs font-bold uppercase tracking-widest text-brand-accent">Year-Over-Year Maintenance Spend</p>' +
+    '<p class="text-[11px] text-brand-muted mt-1">Tracking vendor vs. in-house maintenance costs over time</p></div>' +
+    '<div class="flex items-center gap-4"><div class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block" style="background:#F59E0B"></span><span class="text-[10px] text-brand-muted">Vendor</span></div>' +
+    '<div class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm inline-block" style="background:#00B4D8"></span><span class="text-[10px] text-brand-muted">In-House</span></div></div>' +
+    '</div></div>';
+
+  html += '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
+    kpiCard('dollar-sign', 'Total Spend', fmt.format(totalSpend), '', 'text-emerald-400') +
+    kpiCard('building-2', 'Vendor Spend', fmt.format(vendorSpend), '', 'text-amber-400') +
+    kpiCard('wrench', 'In-House Spend', fmt.format(inhouseSpend), '', 'text-cyan-400') +
+    '<div class="kpi-card"><div class="flex items-center gap-2 mb-1"><i data-lucide="trending-down" class="w-4 h-4 text-emerald-400"></i><span class="text-[10px] text-brand-muted uppercase font-semibold tracking-wide">In-House Savings Captured</span></div><p class="text-xl md:text-2xl font-bold tabular-nums">' + fmt.format(inhouseSpend) + '</p><span class="badge badge-green mt-1">Costs kept internal</span><p class="text-[10px] text-brand-muted mt-1">(' + inhousePct + '% of total spend kept in-house)</p></div>' +
+    '</div>';
+
+  if (getFilteredInvoices().length === 0) {
+    html += '<div class="chart-container mb-4">' + emptyStateHTML('truck', 'No invoice data yet.', "Click '+ Add Invoice' in the top bar to record your first repair.", true) + '</div>';
+  } else {
+    html += '<div class="chart-container mb-4"><p class="chart-title">Maintenance Spend by Year — Vendor vs. In-House</p><div class="relative" style="height:280px"><canvas id="chart-yoy-stacked"></canvas></div></div>';
+
+    html += '<div class="chart-container mb-4"><p class="chart-title">Monthly Maintenance Spend by Category</p><p class="text-[11px] text-brand-muted mb-3">Click legend items to show/hide categories</p><div class="relative" style="height:300px"><canvas id="chart-monthly-category"></canvas></div></div>';
+
+    html += '<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">' +
+      '<div class="lg:col-span-3 chart-container"><p class="chart-title">Monthly Repair Spending & Invoice Volume</p><div class="relative h-64 md:h-72"><canvas id="chart-monthly"></canvas></div></div>' +
+      '<div class="lg:col-span-2 chart-container"><p class="chart-title">Spend by Category</p><div class="relative h-64 md:h-72"><canvas id="chart-cat-donut"></canvas></div></div>' +
+      '</div>' +
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">' +
+      '<div class="chart-container"><p class="chart-title">Top Repair Categories by Frequency</p><div class="relative h-64 md:h-72"><canvas id="chart-cat-freq"></canvas></div></div>' +
+      '<div class="chart-container"><p class="chart-title">Top Categories by Total Cost</p><div class="relative h-64 md:h-72"><canvas id="chart-cat-cost"></canvas></div></div>' +
+      '</div>' +
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+      '<div class="chart-container"><p class="chart-title">Warranty vs Non-Warranty by Vehicle Year</p><div class="relative h-64"><canvas id="chart-warranty-year"></canvas></div></div>' +
+      '<div class="chart-container"><p class="chart-title">Total Spend by Vehicle Year</p><div class="relative h-64"><canvas id="chart-spend-year"></canvas></div></div>' +
+      '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderUnitHistory(el) {
+  const siteInvoices = getFilteredInvoices();
+  const allUnits = [...new Set(siteInvoices.map(r => r.unitNumber))].sort();
+  if (siteInvoices.length === 0) {
+    el.innerHTML = '<div class="chart-container">' + emptyStateHTML('truck', 'No invoices recorded yet.', 'Add your first invoice to start tracking unit history.', true) + '</div>';
+    return;
+  }
+  const unitOptions = allUnits.map(u => '<option value="' + u + '"' + (state.selectedUnit === u ? ' selected' : '') + '>' + u + ' (' + (getVehicleYear(u) || '?') + ')</option>').join('');
+  if (!state.selectedUnit) {
+    el.innerHTML = '<div class="chart-container mb-4"><p class="filter-label">Select Unit</p><select class="filter-input max-w-xs" id="unit-select"><option value="">-- Select Unit --</option>' + unitOptions + '</select></div>' +
+      '<div class="flex flex-col items-center justify-center py-20 text-brand-muted"><i data-lucide="truck" class="w-16 h-16 mb-4 opacity-30"></i><p class="text-lg font-semibold">Select a Unit to View History</p><p class="text-sm">Choose from the dropdown above</p></div>';
+    return;
+  }
+  const data = filteredData().filter(r => r.unitNumber === state.selectedUnit).sort((a, b) => a.date.localeCompare(b.date));
+  const vy = getVehicleYear(state.selectedUnit) || '?';
+  const totalSpend = data.reduce((s, r) => s + r.cost, 0);
+  const miles = data.map(r => r.mileage);
+  const topCat = modeOf(data.map(r => r.category));
+  const lastDate = data.length ? fmtDate(data[data.length - 1].date) : 'N/A';
+
+  el.innerHTML = '<div class="chart-container mb-4"><p class="filter-label">Select Unit</p><select class="filter-input max-w-xs" id="unit-select"><option value="">-- Select Unit --</option>' + unitOptions + '</select></div>' +
+    '<div class="kpi-card mb-4 flex flex-wrap gap-6 items-center">' +
+    '<div><p class="text-2xl font-bold text-brand-accent">' + state.selectedUnit + '</p><span class="badge badge-purple">' + vy + '</span></div>' +
+    '<div><p class="text-xs text-brand-muted">Total Invoices</p><p class="text-xl font-bold">' + data.length + '</p></div>' +
+    '<div><p class="text-xs text-brand-muted">Total Spend</p><p class="text-xl font-bold text-brand-accent2">' + fmt.format(totalSpend) + '</p></div>' +
+    '<div><p class="text-xs text-brand-muted">Mileage Range</p><p class="text-sm font-semibold">' + (miles.length ? fmtNum(Math.min(...miles)) + ' – ' + fmtNum(Math.max(...miles)) : '-') + '</p></div>' +
+    '<div><p class="text-xs text-brand-muted">Most Common Issue</p><p class="text-sm font-semibold">' + (topCat || '-') + '</p></div>' +
+    '<div><p class="text-xs text-brand-muted">Last Service</p><p class="text-sm font-semibold">' + lastDate + '</p></div></div>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">' +
+    '<div class="chart-container"><p class="chart-title">Cost Over Time</p><div class="relative h-56"><canvas id="chart-unit-cost"></canvas></div></div>' +
+    '<div class="chart-container"><p class="chart-title">Repairs by Category</p><div class="relative h-56"><canvas id="chart-unit-cat"></canvas></div></div></div>' +
+    (data.length ? '<p class="chart-title mb-2">Repair Timeline</p><div class="space-y-0 mb-4 max-h-[400px] overflow-y-auto pr-2">' +
+    data.map((r, i) => '<div class="flex gap-3"><div class="flex flex-col items-center"><div class="timeline-dot" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '"></div>' + (i < data.length - 1 ? '<div class="timeline-line flex-1"></div>' : '') + '</div>' +
+      '<div class="kpi-card flex-1 mb-2 p-3"><div class="flex flex-wrap justify-between items-start gap-2"><div><p class="text-sm font-semibold">' + fmtDate(r.date) + ' <span class="badge badge-cyan ml-1">' + fmtNum(r.mileage) + ' mi</span></p><p class="text-sm mt-1">' + r.description + '</p>' +
+      '<div class="flex flex-wrap gap-1 mt-1"><span class="badge" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '22;color:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '">' + r.category + '</span>' +
+      (r.warrantyStatus === 'Warranty' ? '<span class="badge badge-green">Warranty</span>' : '') + (r.pmStatus === 'PM' ? '<span class="badge badge-purple">PM</span>' : '') +
+      '<span class="badge ' + (getServiceType(r) === 'In-House' ? 'badge-cyan' : 'badge-amber') + '">' + getServiceType(r) + '</span>' +
+      '<span class="badge badge-purple">' + getSiteLocation(r) + '</span></div>' +
+      '<p class="text-[11px] text-brand-muted mt-1">' + (r.vendor || '') + ' • ' + r.invoiceNumber + '</p></div>' +
+      '<p class="text-lg font-bold text-brand-accent2">' + fmtFull.format(r.cost) + '</p></div></div></div>').join('') + '</div>' : '') +
+    '<div class="chart-container overflow-x-auto"><p class="chart-title">Full Service Record</p>' +
+    '<table class="data-table"><thead><tr><th>Invoice #</th><th>Date</th><th>Mileage</th><th>Category</th><th>Description</th><th>Vendor</th><th>Type</th><th>Site</th><th class="text-right">Cost</th><th>Warranty</th><th>PM</th></tr></thead><tbody>' +
+    data.map(r => '<tr><td class="text-brand-muted">' + r.invoiceNumber + '</td><td>' + fmtDate(r.date) + '</td><td class="tabular-nums">' + fmtNum(r.mileage) + '</td><td><span class="badge" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '22;color:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '">' + r.category + '</span></td><td>' + r.description + '</td><td class="text-brand-muted">' + (r.vendor || '') + '</td><td><span class="badge ' + (getServiceType(r) === 'In-House' ? 'badge-cyan' : 'badge-amber') + '">' + getServiceType(r) + '</span></td><td class="text-xs">' + getSiteLocation(r) + '</td><td class="text-right tabular-nums font-semibold">' + fmtFull.format(r.cost) + '</td><td>' + (r.warrantyStatus === 'Warranty' ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-red">No</span>') + '</td><td>' + (r.pmStatus === 'PM' ? '<span class="badge badge-purple">PM</span>' : '-') + '</td></tr>').join('') +
+    '</tbody></table></div>';
+}
+
+function renderMileage(el) {
+  if (getFilteredInvoices().length === 0) {
+    el.innerHTML = '<div class="chart-container">' + emptyStateHTML('ruler', 'No data available.', 'Add invoices to see mileage analysis.', true) + '</div>';
+    return;
+  }
+  const data = filteredData();
+  const sb = state.selectedMileageBand;
+  const bandData = sb === 'All' ? data : data.filter(r => getMileageBand(r.mileage) === sb);
+  const totalSpend = bandData.reduce((s, r) => s + r.cost, 0);
+  const topCat = modeOf(bandData.map(r => r.category));
+
+  el.innerHTML = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
+    kpiCard('file-text', 'Invoices in Range', fmtNum(bandData.length), '', 'text-brand-accent') +
+    kpiCard('dollar-sign', 'Spend in Range', fmt.format(totalSpend), '', 'text-brand-accent2') +
+    kpiCard('calculator', 'Avg Cost/Invoice', fmt.format(bandData.length ? totalSpend / bandData.length : 0), '', 'text-purple-400') +
+    kpiCard('tag', 'Top Category', topCat || '-', '', 'text-green-400') +
+    '</div>' +
+    '<div class="chart-container mb-4"><p class="filter-label mb-2">Mileage Band Selector</p><div class="flex flex-wrap gap-2" id="mileage-band-selector">' +
+    '<button class="mileage-band-btn ' + (sb === 'All' ? 'active' : '') + '" data-band="All">All Bands</button>' +
+    MILEAGE_BANDS.map(b => '<button class="mileage-band-btn ' + (sb === b.label ? 'active' : '') + '" data-band="' + b.label + '">' + b.label + '</button>').join('') +
+    '</div></div>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">' +
+    '<div class="chart-container"><p class="chart-title">Number of Repairs by Mileage Range</p><div class="relative h-64"><canvas id="chart-mi-count"></canvas></div></div>' +
+    '<div class="chart-container"><p class="chart-title">Total Repair Cost by Mileage Range</p><div class="relative h-64"><canvas id="chart-mi-cost"></canvas></div></div></div>' +
+    '<div class="chart-container mb-4"><p class="chart-title">Top Issues at ' + (sb === 'All' ? 'All Mileage Bands' : sb + ' Miles') + '</p><div id="mileage-top-issues"></div></div>' +
+    '<div class="chart-container overflow-x-auto"><p class="chart-title">Repair Category × Mileage Band Heatmap</p><div id="heatmap-container"></div></div>';
+
+  const descMap = {};
+  bandData.forEach(r => { if (!descMap[r.description]) descMap[r.description] = { count: 0, totalCost: 0, cat: r.category }; descMap[r.description].count++; descMap[r.description].totalCost += r.cost; });
+  const topIssues = Object.entries(descMap).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
+  const tiEl = document.getElementById('mileage-top-issues');
+  if (tiEl) tiEl.innerHTML = topIssues.length ? topIssues.map(([desc, d], i) =>
+    '<div class="flex items-center gap-3 py-2 ' + (i < topIssues.length - 1 ? 'border-b border-brand-border' : '') + '">' +
+    '<span class="text-lg font-bold ' + (i < 3 ? 'text-brand-accent2' : 'text-brand-muted') + ' w-6 text-center">' + (i + 1) + '</span>' +
+    '<div class="flex-1"><p class="text-sm font-semibold">' + desc + '</p><span class="badge" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(d.cat) % 12] + '22;color:' + CHART_COLORS[CATEGORY_NAMES.indexOf(d.cat) % 12] + '">' + d.cat + '</span></div>' +
+    '<span class="badge badge-cyan">' + d.count + '×</span><span class="text-sm font-semibold text-brand-accent2">' + fmt.format(d.totalCost / d.count) + ' avg</span></div>').join('') :
+    '<p class="text-sm text-brand-muted py-4">No data for selected band</p>';
+
+  const hmEl = document.getElementById('heatmap-container');
+  if (hmEl) {
+    const hmData = {};
+    CATEGORY_NAMES.forEach(c => { hmData[c] = {}; MILEAGE_BANDS.forEach(b => hmData[c][b.label] = 0); });
+    data.forEach(r => { const b = getMileageBand(r.mileage); if (hmData[r.category] && hmData[r.category][b] !== undefined) hmData[r.category][b]++; });
+    const maxVal = Math.max(1, ...Object.values(hmData).flatMap(c => Object.values(c)));
+    hmEl.innerHTML = '<div class="overflow-x-auto"><table class="w-full"><thead><tr><th class="text-left text-[10px] text-brand-muted p-1 min-w-[100px]">Category</th>' + MILEAGE_BANDS.map(b => '<th class="text-center text-[9px] text-brand-muted p-1 font-normal">' + b.label + '</th>').join('') + '</tr></thead><tbody>' +
+      CATEGORY_NAMES.map(c => '<tr><td class="text-[11px] font-medium p-1">' + c + '</td>' + MILEAGE_BANDS.map(b => { const v = hmData[c][b.label]; const intensity = v / maxVal; const bg = intensity > 0.6 ? 'rgba(245,158,11,' + (.2 + intensity * .5) + ')' : intensity > 0.2 ? 'rgba(0,180,216,' + (.1 + intensity * .4) + ')' : 'rgba(48,54,61,0.3)'; return '<td class="heatmap-cell" style="background:' + bg + '">' + (v || '') + '</td>'; }).join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  }
+}
+
+function renderPredictive(el) {
+  const siteInvoices = getFilteredInvoices();
+  if (siteInvoices.length === 0) {
+    el.innerHTML = '<div class="chart-container">' + emptyStateHTML('sparkles', 'No historical data yet.', 'Add repair invoices to generate inspection recommendations.', true) + '</div>';
+    return;
+  }
+  const allUnits = [...new Set(siteInvoices.map(r => r.unitNumber))].sort();
+  const unitOptions = allUnits.map(u => '<option value="' + u + '"' + (state.predictiveUnit === u ? ' selected' : '') + '>' + u + ' (' + (getVehicleYear(u) || '?') + ')</option>').join('');
+  const pu = state.predictiveUnit;
+  const unitData = pu ? siteInvoices.filter(r => r.unitNumber === pu).sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const maxMi = unitData.length ? Math.max(...unitData.map(r => r.mileage)) : 0;
+  const curMi = state.predictiveMileage || maxMi;
+
+  let contentHTML = '';
+  if (pu && curMi) {
+    const vy = getVehicleYear(pu) || '?';
+    const totalSpend = unitData.reduce((s, r) => s + r.cost, 0);
+    const lastService = unitData.length ? unitData[unitData.length - 1] : null;
+    const pmRecords = unitData.filter(r => r.pmStatus === 'PM');
+    const lastPmMi = pmRecords.length ? Math.max(...pmRecords.map(r => r.mileage)) : 0;
+    const nextPmDue = lastPmMi + 10000;
+
+    const miLow = Math.max(0, curMi - 5000), miHigh = curMi + 10000;
+    const rangeData = siteInvoices.filter(r => r.mileage >= miLow && r.mileage <= miHigh && r.pmStatus !== 'PM');
+    const totalVehiclesInRange = new Set(siteInvoices.filter(r => r.mileage >= miLow && r.mileage <= miHigh).map(r => r.unitNumber)).size;
+    const issueMap = {};
+    rangeData.forEach(r => {
+      const key = r.description;
+      if (!issueMap[key]) issueMap[key] = { count: 0, totalCost: 0, cat: r.category, units: new Set() };
+      issueMap[key].count++; issueMap[key].totalCost += r.cost; issueMap[key].units.add(r.unitNumber);
+    });
+    const recommendations = Object.entries(issueMap).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+
+    contentHTML = '<div class="grid grid-cols-1 lg:grid-cols-10 gap-4 mb-4">' +
+      '<div class="lg:col-span-3 kpi-card"><p class="text-xl font-bold text-brand-accent mb-2">' + pu + '</p><div class="space-y-2 text-sm">' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Vehicle Year</span><span class="badge badge-purple">' + vy + '</span></div>' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Total Invoices</span><span>' + unitData.length + '</span></div>' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Total Spend</span><span class="font-semibold text-brand-accent2">' + fmt.format(totalSpend) + '</span></div>' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Last Service</span><span>' + (lastService ? fmtDate(lastService.date) : 'N/A') + '</span></div>' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Last Mileage</span><span>' + fmtNum(maxMi) + ' mi</span></div>' +
+      '<div class="flex justify-between"><span class="text-brand-muted">Next PM Due</span><span class="font-semibold text-green-400">' + fmtNum(nextPmDue) + ' mi</span></div></div></div>' +
+      '<div class="lg:col-span-7 chart-container"><p class="chart-title"><i data-lucide="sparkles" class="w-4 h-4 inline text-brand-accent2"></i> What to Inspect</p>' +
+      '<p class="text-xs text-brand-muted mb-3">Issues most commonly seen between ' + fmtNum(miLow) + ' and ' + fmtNum(miHigh) + ' miles across all fleet vehicles</p>' +
+      (recommendations.length ? '<div class="grid grid-cols-1 md:grid-cols-2 gap-2">' +
+      recommendations.map(([desc, d], i) => {
+        const freq = d.units.size / Math.max(1, totalVehiclesInRange);
+        const risk = freq > 0.4 ? 'High' : freq > 0.2 ? 'Medium' : 'Low';
+        const riskCls = risk === 'High' ? 'risk-high' : risk === 'Medium' ? 'risk-medium' : 'risk-low';
+        return '<div class="kpi-card p-3 flex gap-3 items-start"><span class="text-lg font-bold text-brand-accent">' + (i + 1) + '</span><div class="flex-1"><p class="text-sm font-semibold">' + desc + '</p><span class="badge mt-1" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(d.cat) % 12] + '22;color:' + CHART_COLORS[CATEGORY_NAMES.indexOf(d.cat) % 12] + '">' + d.cat + '</span><p class="text-[11px] text-brand-muted mt-1">' + d.units.size + ' of ' + totalVehiclesInRange + ' vehicles had this issue</p><div class="flex items-center gap-2 mt-1"><span class="text-xs font-semibold text-brand-accent2">' + fmt.format(d.totalCost / d.count) + ' avg</span><span class="badge ' + riskCls + '">' + risk + ' Risk</span></div></div></div>';
+      }).join('') + '</div>' : '<p class="text-sm text-brand-muted py-4">Not enough data to generate recommendations at this mileage range.</p>') +
+      '</div></div>' +
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">' +
+      '<div class="chart-container"><p class="chart-title">Last 5 Service Records</p><table class="data-table"><thead><tr><th>Date</th><th>Mileage</th><th>Description</th><th class="text-right">Cost</th></tr></thead><tbody>' +
+      unitData.slice(-5).reverse().map(r => '<tr><td>' + fmtDate(r.date) + '</td><td class="tabular-nums">' + fmtNum(r.mileage) + '</td><td>' + r.description + '</td><td class="text-right tabular-nums font-semibold">' + fmtFull.format(r.cost) + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      '<div class="chart-container"><p class="chart-title">Repair Cost by Mileage</p><div class="relative h-56"><canvas id="chart-pred-mileage"></canvas></div></div></div>';
+  }
+
+  el.innerHTML = '<div class="chart-container mb-4"><p class="chart-title"><i data-lucide="sparkles" class="w-4 h-4 inline text-brand-accent2"></i> Predictive Maintenance</p>' +
+    '<div class="flex flex-wrap gap-3 items-end mt-2">' +
+    '<div><p class="filter-label">Select Vehicle Unit</p><select class="filter-input w-48" id="pred-unit-select"><option value="">-- Select --</option>' + unitOptions + '</select></div>' +
+    '<div><p class="filter-label">Current Mileage</p><input type="number" class="filter-input w-40" id="pred-mileage" value="' + (curMi || '') + '" placeholder="Enter mileage"></div>' +
+    '<button class="px-4 py-[7px] rounded-lg text-sm font-semibold bg-brand-accent text-brand-bg hover:opacity-90 transition" id="pred-generate"><i data-lucide="sparkles" class="w-4 h-4 inline"></i> Generate</button></div></div>' +
+    contentHTML;
+}
+
+function renderReliability(el) {
+  const siteInvoices = getFilteredInvoices();
+  if (siteInvoices.length === 0) {
+    el.innerHTML = '<div class="chart-container">' + emptyStateHTML('trophy', 'No fleet data yet.', 'Add invoices to see reliability rankings.', true) + '</div>';
+    return;
+  }
+  const data = filteredData();
+  const allUnits = [...new Set(siteInvoices.map(r => r.unitNumber))].sort();
+  const unitStats = {};
+  allUnits.forEach(u => unitStats[u] = { unit: u, year: getVehicleYear(u) || '?', invoices: 0, spend: 0, pmCount: 0, warCount: 0, nwCount: 0, cats: {} });
+  data.forEach(r => {
+    if (!unitStats[r.unitNumber]) unitStats[r.unitNumber] = { unit: r.unitNumber, year: getVehicleYear(r.unitNumber) || '?', invoices: 0, spend: 0, pmCount: 0, warCount: 0, nwCount: 0, cats: {} };
+    const s = unitStats[r.unitNumber];
+    s.invoices++; s.spend += r.cost;
+    if (r.pmStatus === 'PM') s.pmCount++;
+    if (r.warrantyStatus === 'Warranty') s.warCount++; else s.nwCount++;
+    s.cats[r.category] = (s.cats[r.category] || 0) + 1;
+  });
+  Object.values(unitStats).forEach(s => {
+    s.avgCost = s.invoices ? s.spend / s.invoices : 0;
+    s.topIssue = Object.entries(s.cats).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+    const repeated = Object.values(s.cats).filter(v => v >= 2).reduce((a, b) => a + b, 0);
+    s.reliability = s.invoices ? Math.round((1 - repeated / s.invoices / 2) * 100) : 100;
+    s.reliability = Math.max(0, Math.min(100, s.reliability));
+  });
+  const sorted = Object.values(unitStats).filter(s => s.invoices > 0);
+  const mostExpensive = sorted.length ? [...sorted].sort((a, b) => b.spend - a.spend)[0] : null;
+  const mostRepaired = sorted.length ? [...sorted].sort((a, b) => b.invoices - a.invoices)[0] : null;
+  const highAvg = sorted.length ? [...sorted].sort((a, b) => b.avgCost - a.avgCost)[0] : null;
+  const lowRel = sorted.length ? [...sorted].sort((a, b) => a.reliability - b.reliability)[0] : null;
+
+  el.innerHTML = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
+    kpiCard('dollar-sign', 'Most Expensive Unit', mostExpensive ? mostExpensive.unit + ' (' + fmt.format(mostExpensive.spend) + ')' : '-', '', 'text-red-400') +
+    kpiCard('wrench', 'Most Repaired Unit', mostRepaired ? mostRepaired.unit + ' (' + mostRepaired.invoices + ')' : '-', '', 'text-brand-accent2') +
+    kpiCard('trending-up', 'Highest Avg Cost', highAvg ? highAvg.unit + ' (' + fmt.format(highAvg.avgCost) + ')' : '-', '', 'text-purple-400') +
+    kpiCard('alert-triangle', 'Lowest Reliability', lowRel ? lowRel.unit + ' (' + lowRel.reliability + '%)' : '-', '', 'text-red-400') +
+    '</div>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">' +
+    '<div class="chart-container"><p class="chart-title">Most Expensive Units</p><div class="relative h-64 md:h-72"><canvas id="chart-exp-units"></canvas></div></div>' +
+    '<div class="chart-container"><p class="chart-title">Units with Most Repair Events</p><div class="relative h-64 md:h-72"><canvas id="chart-rep-units"></canvas></div></div></div>' +
+    '<div class="chart-container mb-4 overflow-x-auto"><p class="chart-title">Fleet Reliability Scorecard</p>' +
+    '<table class="data-table" id="rel-table"><thead><tr><th data-sort="unit">Unit #</th><th data-sort="year">Year</th><th data-sort="invoices">Invoices</th><th data-sort="spend" class="text-right">Total Spend</th><th data-sort="avgCost" class="text-right">Avg Cost</th><th data-sort="pmCount">PM</th><th data-sort="warCount">Warranty</th><th data-sort="nwCount">Non-Warranty</th><th>Top Issue</th><th data-sort="reliability">Reliability</th></tr></thead><tbody id="rel-table-body"></tbody></table></div>';
+
+  let relSort = { col: 'spend', dir: 'desc' };
+  function renderRelTable() {
+    const rows = [...sorted].sort((a, b) => {
+      const v = relSort.dir === 'asc' ? 1 : -1;
+      return (a[relSort.col] > b[relSort.col] ? 1 : -1) * v;
+    });
+    const tbody = document.getElementById('rel-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = rows.map(s => {
+      const relCls = s.reliability >= 70 ? 'badge-green' : s.reliability >= 50 ? 'badge-amber' : 'badge-red';
+      return '<tr><td class="font-semibold">' + s.unit + '</td><td><span class="badge badge-purple">' + s.year + '</span></td><td class="tabular-nums">' + s.invoices + '</td><td class="text-right tabular-nums font-semibold">' + fmt.format(s.spend) + '</td><td class="text-right tabular-nums">' + fmt.format(s.avgCost) + '</td><td class="tabular-nums">' + s.pmCount + '</td><td class="tabular-nums">' + s.warCount + '</td><td class="tabular-nums">' + s.nwCount + '</td><td class="text-xs">' + s.topIssue + '</td><td><span class="badge ' + relCls + '">' + s.reliability + '%</span></td></tr>';
+    }).join('');
+  }
+  renderRelTable();
+  document.querySelectorAll('#rel-table th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      relSort = { col, dir: relSort.col === col && relSort.dir === 'desc' ? 'asc' : 'desc' };
+      renderRelTable();
+    });
+  });
+}
+
+function renderManageData(el) {
+  const siteInvoices = getFilteredInvoices();
+  const count = siteInvoices.length;
+  if (count === 0) {
+    el.innerHTML = '<div class="chart-container">' + emptyStateHTML('database', 'Your data lives here.', "Add invoices using the '+ Add Invoice' button. All data is saved and persists across sessions.", true) + '</div>';
+    return;
+  }
+  const sorted = [...siteInvoices].sort((a, b) => b.date.localeCompare(a.date));
+  el.innerHTML = '<div class="chart-container mb-4"><p class="chart-title flex items-center gap-2"><i data-lucide="clipboard-list" class="w-4 h-4 text-brand-accent"></i> All Invoices (' + count + ' records)</p>' +
+    '<p class="text-xs text-brand-muted mb-3">All your invoice data. Edit or delete individual records below.</p>' +
+    '<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>#</th><th>Invoice #</th><th>Unit</th><th>Date</th><th>Mileage</th><th>Category</th><th>Description</th><th>Type</th><th>Site</th><th class="text-right">Cost</th><th>Warranty</th><th>PM</th><th>Actions</th></tr></thead><tbody>' +
+    sorted.map((r, i) => '<tr><td class="text-brand-muted tabular-nums">' + (i + 1) + '</td><td class="font-semibold">' + r.invoiceNumber + '</td><td>' + r.unitNumber + '</td><td>' + fmtDate(r.date) + '</td><td class="tabular-nums">' + fmtNum(r.mileage) + '</td><td><span class="badge" style="background:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '22;color:' + CHART_COLORS[CATEGORY_NAMES.indexOf(r.category) % 12] + '">' + r.category + '</span></td><td class="text-xs max-w-[160px] truncate">' + r.description + '</td><td><span class="badge ' + (getServiceType(r) === 'In-House' ? 'badge-cyan' : 'badge-amber') + '">' + getServiceType(r) + '</span></td><td class="text-xs whitespace-nowrap">' + getSiteLocation(r) + '</td><td class="text-right tabular-nums font-semibold">' + fmtFull.format(r.cost) + '</td><td>' + (r.warrantyStatus === 'Warranty' ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-red">No</span>') + '</td><td>' + (r.pmStatus === 'PM' ? '<span class="badge badge-purple">PM</span>' : '-') + '</td><td class="whitespace-nowrap"><button class="p-1 text-brand-accent hover:text-brand-text transition manage-edit-btn" data-id="' + r.id + '"><i data-lucide="pencil" class="w-4 h-4"></i></button><button class="p-1 text-red-400 hover:text-red-300 transition manage-delete-btn" data-id="' + r.id + '" data-inv="' + r.invoiceNumber + '"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>').join('') +
+    '</tbody></table></div></div>' +
+    '<div class="flex justify-end"><button id="btn-clear-all-data" class="px-4 py-2 rounded-lg text-xs font-semibold bg-red-900/30 text-red-400 border border-red-800/40 hover:bg-red-900/50 transition flex items-center gap-2"><i data-lucide="trash-2" class="w-4 h-4"></i> Clear All Data</button></div>';
+
+  setTimeout(() => {
+    document.querySelectorAll('.manage-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inv = ALL_INVOICES.find(r => r.id === btn.dataset.id);
+        if (inv) openAddModal(inv);
+      });
+    });
+    document.querySelectorAll('.manage-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const invId = btn.dataset.id;
+        const invNum = btn.dataset.inv;
+        showConfirm('Delete Invoice', 'Are you sure you want to delete invoice ' + invNum + '? This cannot be undone.', async () => {
+          await deleteInvoiceById(invId);
+          refreshDashboard();
+          showToast('Invoice ' + invNum + ' deleted.', 'info');
+        });
+      });
+    });
+    const clearBtn = document.getElementById('btn-clear-all-data');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      showConfirm('Clear All Data', 'This will permanently delete all ' + ALL_INVOICES.length + ' invoices. This cannot be undone.', async () => {
+        await clearAllData();
+        refreshDashboard();
+        showToast('All data cleared.', 'info');
+      });
+    });
+    if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") lucide.createIcons();
+  }, 50);
+}
+
+// ==================== CHART RENDERING ====================
+function renderCharts() {
+  switch (state.currentPage) {
+    case 'overview': renderOverviewCharts(); break;
+    case 'unit-history': renderUnitCharts(); break;
+    case 'mileage': renderMileageCharts(); break;
+    case 'predictive': renderPredictiveCharts(); break;
+    case 'reliability': renderReliabilityCharts(); break;
+  }
+}
+
+function renderOverviewCharts() {
+  const data = filteredData();
+  if (data.length === 0) return;
+
+  const yoyCtx = document.getElementById('chart-yoy-stacked');
+  if (yoyCtx) {
+    const vendorByYear = {};
+    const inhouseByYear = {};
+    ALL_YEARS_RANGE.forEach(y => { vendorByYear[y] = 0; inhouseByYear[y] = 0; });
+    data.forEach(r => {
+      const y = r.vehicleYear;
+      if (y && vendorByYear[y] !== undefined) {
+        if (getServiceType(r) === 'In-House') inhouseByYear[y] += r.cost;
+        else vendorByYear[y] += r.cost;
+      }
+    });
+    chartInstances.yoyStacked = new Chart(yoyCtx, {
+      type: 'bar',
+      data: {
+        labels: ALL_YEARS_RANGE.map(String),
+        datasets: [
+          { label: 'Vendor Spend', data: ALL_YEARS_RANGE.map(y => vendorByYear[y]), backgroundColor: '#F59E0B', borderRadius: 0 },
+          { label: 'In-House Spend', data: ALL_YEARS_RANGE.map(y => inhouseByYear[y]), backgroundColor: '#00B4D8', borderRadius: 0 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#8B949E', font: { size: 10, family: 'Inter' }, boxWidth: 10 } },
+          tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8,
+            callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt.format(ctx.raw),
+              afterBody: function(items) {
+                if (items.length > 0) {
+                  const idx = items[0].dataIndex;
+                  const total = ALL_YEARS_RANGE.map(y => vendorByYear[y] + inhouseByYear[y])[idx];
+                  return ['Total: ' + fmt.format(total)];
+                }
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, ticks: { color: '#8B949E', font: { size: 10 } }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: '#8B949E', font: { size: 9 }, callback: v => { if (v >= 1000000) return '$' + (v / 1000000).toFixed(1) + 'M'; if (v >= 1000) return '$' + (v / 1000).toFixed(0) + 'K'; return '$' + v; } }, grid: { color: 'rgba(48,54,61,0.2)' } }
+        }
+      }
+    });
+  }
+
+  const mcCtx = document.getElementById('chart-monthly-category');
+  if (mcCtx) {
+    const monthlyByCat = {};
+    data.forEach(r => {
+      const key = r.date.substring(0, 7);
+      if (!monthlyByCat[key]) monthlyByCat[key] = {};
+      monthlyByCat[key][r.category] = (monthlyByCat[key][r.category] || 0) + r.cost;
+    });
+    const allMonths = Object.keys(monthlyByCat).sort();
+    const activeCats = CATEGORY_NAMES.filter(c => data.some(r => r.category === c));
+    const datasets = activeCats.map((cat, i) => ({
+      label: cat,
+      data: allMonths.map(m => monthlyByCat[m][cat] || 0),
+      backgroundColor: CHART_COLORS[CATEGORY_NAMES.indexOf(cat) % 12],
+      borderRadius: 0
+    }));
+    chartInstances.monthlyCat = new Chart(mcCtx, {
+      type: 'bar',
+      data: {
+        labels: allMonths.map(k => { const [y, m] = k.split('-'); return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }); }),
+        datasets: datasets
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#8B949E', font: { size: 9, family: 'Inter' }, boxWidth: 8, padding: 6 } },
+          tooltip: {
+            backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, mode: 'index',
+            callbacks: {
+              label: ctx => ctx.raw > 0 ? ctx.dataset.label + ': ' + fmt.format(ctx.raw) : null,
+              afterBody: function(items) {
+                if (items.length > 0) {
+                  const idx = items[0].dataIndex;
+                  let total = 0;
+                  datasets.forEach(ds => total += ds.data[idx] || 0);
+                  return ['─────────────', 'Total: ' + fmt.format(total)];
+                }
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, ticks: { color: '#8B949E', font: { size: 8 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 24 }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } }
+        }
+      }
+    });
+  }
+
+  const monthly = {};
+  data.forEach(r => { const key = r.date.substring(0, 7); if (!monthly[key]) monthly[key] = { spend: 0, count: 0 }; monthly[key].spend += r.cost; monthly[key].count++; });
+  const mKeys = Object.keys(monthly).sort();
+  const ctx1 = document.getElementById('chart-monthly');
+  if (ctx1 && mKeys.length) {
+    chartInstances.monthly = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: mKeys.map(k => { const [y, m] = k.split('-'); return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }); }),
+        datasets: [
+          { label: 'Total Spend', data: mKeys.map(k => monthly[k].spend), borderColor: '#00B4D8', backgroundColor: 'rgba(0,180,216,0.08)', fill: true, tension: 0.4, pointRadius: 1, borderWidth: 2, yAxisID: 'y' },
+          { label: 'Invoice Count', data: mKeys.map(k => monthly[k].count), borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.08)', fill: false, tension: 0.4, pointRadius: 1, borderWidth: 2, yAxisID: 'y1' }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: '#8B949E', font: { size: 10, family: 'Inter' }, boxWidth: 10 } }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.datasetIndex === 0 ? fmt.format(ctx.raw) : ctx.raw) } } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 18 }, grid: { color: 'rgba(48,54,61,0.3)' } }, y: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } }, y1: { position: 'right', ticks: { color: '#F59E0B', font: { size: 9 } }, grid: { drawOnChartArea: false } } } }
+    });
+  }
+
+  const catSpend = {};
+  CATEGORY_NAMES.forEach(c => catSpend[c] = 0);
+  data.forEach(r => catSpend[r.category] = (catSpend[r.category] || 0) + r.cost);
+  const activeCats2 = CATEGORY_NAMES.filter(c => catSpend[c] > 0);
+  const ctx2 = document.getElementById('chart-cat-donut');
+  if (ctx2 && activeCats2.length) {
+    const total = activeCats2.reduce((s, c) => s + catSpend[c], 0);
+    chartInstances.catDonut = new Chart(ctx2, {
+      type: 'doughnut',
+      data: { labels: activeCats2, datasets: [{ data: activeCats2.map(c => catSpend[c]), backgroundColor: activeCats2.map(c => CHART_COLORS[CATEGORY_NAMES.indexOf(c) % 12]), borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#8B949E', font: { size: 9, family: 'Inter' }, boxWidth: 8, padding: 6 } },
+          tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => ctx.label + ': ' + fmt.format(ctx.raw) + ' (' + ((ctx.raw / total) * 100).toFixed(1) + '%)' } } } }
+    });
+  }
+
+  const catCount = {};
+  CATEGORY_NAMES.forEach(c => catCount[c] = 0);
+  data.forEach(r => catCount[r.category] = (catCount[r.category] || 0) + 1);
+  const sortedCats = CATEGORY_NAMES.filter(c => catCount[c] > 0).sort((a, b) => catCount[b] - catCount[a]);
+  const ctx3 = document.getElementById('chart-cat-freq');
+  if (ctx3 && sortedCats.length) {
+    chartInstances.catFreq = new Chart(ctx3, {
+      type: 'bar',
+      data: { labels: sortedCats, datasets: [{ data: sortedCats.map(c => catCount[c]), backgroundColor: '#00B4D8', borderRadius: 0 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8 } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 } }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { display: false } } } }
+    });
+  }
+
+  const sortedCatsCost = CATEGORY_NAMES.filter(c => catSpend[c] > 0).sort((a, b) => catSpend[b] - catSpend[a]);
+  const ctx4 = document.getElementById('chart-cat-cost');
+  if (ctx4 && sortedCatsCost.length) {
+    chartInstances.catCost = new Chart(ctx4, {
+      type: 'bar',
+      data: { labels: sortedCatsCost, datasets: [{ data: sortedCatsCost.map(c => catSpend[c]), backgroundColor: '#F59E0B', borderRadius: 0 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmt.format(ctx.raw) } } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { display: false } } } }
+    });
+  }
+
+  const years = ALL_YEARS_RANGE.filter(y => state.filters.years.length === 0 || state.filters.years.includes(y));
+  if (years.length) {
+    const warByYear = {}, nwByYear = {};
+    years.forEach(y => { warByYear[y] = 0; nwByYear[y] = 0; });
+    data.forEach(r => { if (r.warrantyStatus === 'Warranty') warByYear[r.vehicleYear] = (warByYear[r.vehicleYear] || 0) + r.cost; else nwByYear[r.vehicleYear] = (nwByYear[r.vehicleYear] || 0) + r.cost; });
+    const ctx5 = document.getElementById('chart-warranty-year');
+    if (ctx5) {
+      chartInstances.warYear = new Chart(ctx5, {
+        type: 'bar',
+        data: { labels: years, datasets: [
+          { label: 'Warranty', data: years.map(y => warByYear[y] || 0), backgroundColor: '#34D399' },
+          { label: 'Non-Warranty', data: years.map(y => nwByYear[y] || 0), backgroundColor: '#F87171' }
+        ] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8B949E', font: { size: 10 }, boxWidth: 10 } }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt.format(ctx.raw) } } },
+          scales: { x: { stacked: true, ticks: { color: '#8B949E' }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+      });
+    }
+
+    const spendByYear = {};
+    years.forEach(y => spendByYear[y] = 0);
+    data.forEach(r => spendByYear[r.vehicleYear] = (spendByYear[r.vehicleYear] || 0) + r.cost);
+    const ctx6 = document.getElementById('chart-spend-year');
+    if (ctx6) {
+      chartInstances.spendYear = new Chart(ctx6, {
+        type: 'bar',
+        data: { labels: years, datasets: [{ data: years.map(y => spendByYear[y] || 0), backgroundColor: years.map((_, i) => CHART_COLORS[i % 12]), borderRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmt.format(ctx.raw) } } },
+          scales: { x: { ticks: { color: '#8B949E' }, grid: { display: false } }, y: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+      });
+    }
+  }
+}
+
+function renderUnitCharts() {
+  if (!state.selectedUnit) return;
+  const data = filteredData().filter(r => r.unitNumber === state.selectedUnit).sort((a, b) => a.date.localeCompare(b.date));
+  if (!data.length) return;
+
+  const ctx1 = document.getElementById('chart-unit-cost');
+  if (ctx1) {
+    chartInstances.unitCost = new Chart(ctx1, {
+      type: 'line',
+      data: { labels: data.map(r => fmtDate(r.date)), datasets: [{ label: 'Cost', data: data.map(r => r.cost), borderColor: '#00B4D8', backgroundColor: 'rgba(0,180,216,0.1)', fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmtFull.format(ctx.raw) } } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 10 }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+    });
+  }
+
+  const catCount = {};
+  data.forEach(r => catCount[r.category] = (catCount[r.category] || 0) + 1);
+  const cats = Object.keys(catCount);
+  const ctx2 = document.getElementById('chart-unit-cat');
+  if (ctx2 && cats.length) {
+    chartInstances.unitCat = new Chart(ctx2, {
+      type: 'doughnut',
+      data: { labels: cats, datasets: [{ data: cats.map(c => catCount[c]), backgroundColor: cats.map(c => CHART_COLORS[CATEGORY_NAMES.indexOf(c) % 12]), borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { color: '#8B949E', font: { size: 9 }, boxWidth: 8, padding: 5 } }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8 } } }
+    });
+  }
+}
+
+function renderMileageCharts() {
+  const data = filteredData();
+  if (!data.length) return;
+  const sb = state.selectedMileageBand;
+  const bandCounts = {}, bandCosts = {};
+  MILEAGE_BANDS.forEach(b => { bandCounts[b.label] = 0; bandCosts[b.label] = 0; });
+  data.forEach(r => { const b = getMileageBand(r.mileage); bandCounts[b] = (bandCounts[b] || 0) + 1; bandCosts[b] = (bandCosts[b] || 0) + r.cost; });
+  const labels = MILEAGE_BANDS.map(b => b.label);
+
+  const ctx1 = document.getElementById('chart-mi-count');
+  if (ctx1) {
+    chartInstances.miCount = new Chart(ctx1, {
+      type: 'bar',
+      data: { labels, datasets: [{ data: labels.map(l => bandCounts[l] || 0), backgroundColor: labels.map(l => l === sb ? '#F59E0B' : '#00B4D8'), borderRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8 } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 8 }, maxRotation: 60 }, grid: { display: false } }, y: { ticks: { color: '#8B949E', font: { size: 9 } }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+    });
+  }
+  const ctx2 = document.getElementById('chart-mi-cost');
+  if (ctx2) {
+    chartInstances.miCost = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels, datasets: [{ data: labels.map(l => bandCosts[l] || 0), backgroundColor: '#F59E0B', borderRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmt.format(ctx.raw) } } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 8 }, maxRotation: 60 }, grid: { display: false } }, y: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+    });
+  }
+}
+
+function renderPredictiveCharts() {
+  if (!state.predictiveUnit) return;
+  const siteInvoices = getFilteredInvoices();
+  const unitData = siteInvoices.filter(r => r.unitNumber === state.predictiveUnit).sort((a, b) => a.mileage - b.mileage);
+  const curMi = state.predictiveMileage || 0;
+  const ctx = document.getElementById('chart-pred-mileage');
+  if (ctx && unitData.length) {
+    chartInstances.predMi = new Chart(ctx, {
+      type: 'scatter',
+      data: { datasets: [{ label: 'Repair Cost', data: unitData.map(r => ({ x: r.mileage, y: r.cost })), backgroundColor: unitData.map(r => r.mileage <= curMi ? '#00B4D8' : 'rgba(0,180,216,0.3)'), pointRadius: 5, pointHoverRadius: 7 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmtNum(ctx.raw.x) + ' mi: ' + fmtFull.format(ctx.raw.y) } } },
+        scales: { x: { title: { display: true, text: 'Mileage', color: '#8B949E', font: { size: 10 } }, ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { title: { display: true, text: 'Cost ($)', color: '#8B949E', font: { size: 10 } }, ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } } } }
+    });
+  }
+}
+
+function renderReliabilityCharts() {
+  const data = filteredData();
+  if (!data.length) return;
+  const unitSpend = {};
+  data.forEach(r => { unitSpend[r.unitNumber] = (unitSpend[r.unitNumber] || 0) + r.cost; });
+  const topExp = Object.entries(unitSpend).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const ctx1 = document.getElementById('chart-exp-units');
+  if (ctx1 && topExp.length) {
+    chartInstances.expUnits = new Chart(ctx1, {
+      type: 'bar',
+      data: { labels: topExp.map(e => e[0]), datasets: [{ data: topExp.map(e => e[1]), backgroundColor: topExp.map((e, i) => CHART_COLORS[i % 12]), borderRadius: 0 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8, callbacks: { label: ctx => fmt.format(ctx.raw) } } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { display: false } } } }
+    });
+  }
+  const unitCount = {};
+  data.forEach(r => { unitCount[r.unitNumber] = (unitCount[r.unitNumber] || 0) + 1; });
+  const topRep = Object.entries(unitCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const ctx2 = document.getElementById('chart-rep-units');
+  if (ctx2 && topRep.length) {
+    chartInstances.repUnits = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels: topRep.map(e => e[0]), datasets: [{ data: topRep.map(e => e[1]), backgroundColor: '#F59E0B', borderRadius: 0 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2333', titleColor: '#F0F6FC', bodyColor: '#F0F6FC', borderColor: '#30363D', borderWidth: 1, cornerRadius: 8 } },
+        scales: { x: { ticks: { color: '#8B949E', font: { size: 9 } }, grid: { color: 'rgba(48,54,61,0.2)' } }, y: { ticks: { color: '#8B949E', font: { size: 10 } }, grid: { display: false } } } }
+    });
+  }
+}
+
+// ==================== ADD INVOICE MODAL ====================
+let addModalWarranty = 'Non-Warranty';
+let addModalPm = 'Non-PM';
+let addModalServiceType = '';
+
+function openAddModal(editInvoice) {
+  state.editingInvoice = editInvoice || null;
+  const modal = document.getElementById('add-invoice-modal');
+  const title = document.getElementById('modal-add-title');
+
+  const dl = document.getElementById('unit-datalist');
+  dl.innerHTML = getAllUnits().map(u => '<option value="' + u + '">').join('');
+
+  const vdl = document.getElementById('vendor-datalist');
+  const existingVendors = getAllVendors();
+  const alwaysPresent = ['In-House Garage', 'Internal Fleet Team'];
+  const allVendorOptions = [...new Set([...alwaysPresent, ...existingVendors])].sort();
+  vdl.innerHTML = allVendorOptions.map(v => '<option value="' + v + '">').join('');
+
+  const catSel = document.getElementById('add-inv-category');
+  catSel.innerHTML = '<option value="">-- Select Category --</option>' + CATEGORY_NAMES.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+
+  // Populate site location dropdown
+  const siteSel = document.getElementById('add-inv-site');
+  siteSel.innerHTML = '<option value="">Select Site Location...</option>' + SITE_LOCATIONS.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+
+  document.querySelectorAll('.form-input.error').forEach(el => el.classList.remove('error'));
+  document.querySelectorAll('[id^="err-"]').forEach(el => el.classList.add('hidden'));
+
+  const yearField = document.getElementById('add-inv-year');
+  const vendorLabel = document.getElementById('vendor-field-label');
+  const vendorInput = document.getElementById('add-inv-vendor');
+
+  if (editInvoice) {
+    title.textContent = 'Edit Invoice';
+    document.getElementById('add-inv-number').value = editInvoice.invoiceNumber;
+    document.getElementById('add-inv-date').value = editInvoice.date;
+    document.getElementById('add-inv-unit').value = editInvoice.unitNumber;
+    const detectedYear = getVehicleYear(editInvoice.unitNumber);
+    yearField.value = detectedYear || editInvoice.vehicleYear || '';
+    yearField.readOnly = !!detectedYear;
+    yearField.style.opacity = detectedYear ? '0.7' : '1';
+    yearField.style.cursor = detectedYear ? 'default' : 'text';
+    document.getElementById('add-inv-mileage').value = editInvoice.mileage;
+    document.getElementById('add-inv-cost').value = editInvoice.cost;
+    document.getElementById('add-inv-desc').value = editInvoice.description;
+    catSel.value = editInvoice.category;
+    vendorInput.value = editInvoice.vendor || '';
+    siteSel.value = getSiteLocation(editInvoice);
+    addModalWarranty = editInvoice.warrantyStatus;
+    addModalPm = editInvoice.pmStatus;
+    addModalServiceType = getServiceType(editInvoice);
+  } else {
+    title.textContent = 'Add New Invoice';
+    document.getElementById('add-inv-number').value = getNextInvoiceNumber();
+    document.getElementById('add-inv-date').value = '2026-07-31';
+    document.getElementById('add-inv-unit').value = '';
+    yearField.value = '';
+    yearField.readOnly = false;
+    yearField.style.opacity = '1';
+    yearField.style.cursor = 'text';
+    document.getElementById('add-inv-mileage').value = '';
+    document.getElementById('add-inv-cost').value = '';
+    document.getElementById('add-inv-desc').value = '';
+    catSel.value = '';
+    vendorInput.value = '';
+    // Default to current global site filter if one is selected, otherwise empty
+    siteSel.value = state.globalSiteFilter !== 'All' ? state.globalSiteFilter : '';
+    addModalWarranty = 'Non-Warranty';
+    addModalPm = 'Non-PM';
+    addModalServiceType = '';
+  }
+
+  updateToggleButtons();
+  updateVendorFieldLabel();
+  modal.style.display = 'flex';
+  if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") lucide.createIcons();
+}
+
+function updateVendorFieldLabel() {
+  const vendorLabel = document.getElementById('vendor-field-label');
+  const vendorInput = document.getElementById('add-inv-vendor');
+  if (addModalServiceType === 'In-House') {
+    vendorLabel.textContent = 'Technician / Shop';
+    vendorInput.placeholder = 'e.g. In-House Garage';
+  } else {
+    vendorLabel.textContent = 'Vendor Name';
+    vendorInput.placeholder = 'e.g. FleetPro Services';
+  }
+}
+
+function closeAddModal() {
+  document.getElementById('add-invoice-modal').style.display = 'none';
+  state.editingInvoice = null;
+}
+
+function updateToggleButtons() {
+  document.getElementById('toggle-warranty-yes').classList.toggle('selected', addModalWarranty === 'Warranty');
+  document.getElementById('toggle-warranty-no').classList.toggle('selected', addModalWarranty === 'Non-Warranty');
+  document.getElementById('toggle-pm-yes').classList.toggle('selected', addModalPm === 'PM');
+  document.getElementById('toggle-pm-no').classList.toggle('selected', addModalPm === 'Non-PM');
+  document.getElementById('toggle-service-vendor').classList.toggle('selected', addModalServiceType === 'Vendor');
+  document.getElementById('toggle-service-inhouse').classList.toggle('selected', addModalServiceType === 'In-House');
+}
+
+function validateAddForm() {
+  let valid = true;
+  const fields = [
+    { id: 'add-inv-number', err: 'err-inv-number' },
+    { id: 'add-inv-date', err: 'err-inv-date' },
+    { id: 'add-inv-unit', err: 'err-inv-unit' },
+    { id: 'add-inv-mileage', err: 'err-inv-mileage' },
+    { id: 'add-inv-cost', err: 'err-inv-cost' },
+    { id: 'add-inv-desc', err: 'err-inv-desc' },
+    { id: 'add-inv-category', err: 'err-inv-category' },
+    { id: 'add-inv-site', err: 'err-inv-site' },
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    const errEl = document.getElementById(f.err);
+    if (!el.value.trim()) {
+      el.classList.add('error');
+      errEl.classList.remove('hidden');
+      valid = false;
+    } else {
+      el.classList.remove('error');
+      errEl.classList.add('hidden');
+    }
+  });
+  const stErr = document.getElementById('err-inv-service-type');
+  if (!addModalServiceType) {
+    stErr.classList.remove('hidden');
+    valid = false;
+  } else {
+    stErr.classList.add('hidden');
+  }
+  return valid;
+}
+
+async function saveInvoiceForm(keepOpen) {
+  if (!validateAddForm()) {
+    showToast('Please fix validation errors before saving.', 'error');
+    return;
+  }
+  const unitNum = document.getElementById('add-inv-unit').value.trim();
+  const yearField = document.getElementById('add-inv-year');
+  let vehicleYear = getVehicleYear(unitNum);
+  if (!vehicleYear && yearField.value.trim()) {
+    vehicleYear = parseInt(yearField.value.trim()) || null;
+  }
+
+  const invoice = {
+    id: state.editingInvoice ? state.editingInvoice.id : generateId(),
+    invoiceNumber: document.getElementById('add-inv-number').value.trim(),
+    date: document.getElementById('add-inv-date').value,
+    unitNumber: unitNum,
+    vehicleYear: vehicleYear,
+    mileage: parseInt(document.getElementById('add-inv-mileage').value) || 0,
+    mileageBand: getMileageBand(document.getElementById('add-inv-mileage').value),
+    category: document.getElementById('add-inv-category').value,
+    description: document.getElementById('add-inv-desc').value.trim(),
+    vendor: document.getElementById('add-inv-vendor').value.trim() || (addModalServiceType === 'In-House' ? 'In-House Garage' : 'Unknown'),
+    cost: parseFloat(document.getElementById('add-inv-cost').value) || 0,
+    warrantyStatus: addModalWarranty,
+    pmStatus: addModalPm,
+    serviceType: addModalServiceType,
+    siteLocation: document.getElementById('add-inv-site').value || DEFAULT_SITE,
+    addedAt: Date.now()
+  };
+
+  await saveInvoice(invoice);
+  refreshDashboard();
+  showToast('Invoice ' + invoice.invoiceNumber + ' saved! Dashboard updated.', 'success');
+
+  if (keepOpen) {
+    state.editingInvoice = null;
+    document.getElementById('add-inv-number').value = getNextInvoiceNumber();
+    document.getElementById('add-inv-mileage').value = '';
+    document.getElementById('add-inv-cost').value = '';
+    document.getElementById('add-inv-desc').value = '';
+    document.getElementById('add-inv-category').value = '';
+    document.getElementById('modal-add-title').textContent = 'Add New Invoice';
+  } else {
+    closeAddModal();
+  }
+}
+
+// ==================== CSV IMPORT ====================
+let parsedImportRows = [];
+
+function openImportModal() {
+  document.getElementById('import-csv-modal').style.display = 'flex';
+  document.getElementById('import-preview').classList.add('hidden');
+  document.getElementById('csv-paste-area').value = '';
+  parsedImportRows = [];
+  if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") lucide.createIcons();
+}
+function closeImportModal() {
+  document.getElementById('import-csv-modal').style.display = 'none';
+}
+
+function downloadTemplate() {
+  const header = 'Invoice Number,Unit Number,Invoice Date,Mileage,Repair Description,Repair Category,Repair Cost,Vendor,Service Type,Warranty Status,PM Status,Site Location';
+  const row1 = 'INV-0001,K124001,2026-07-20,55000,Oil Change & Filter,Oil Service,350.00,FleetPro Services,Vendor,Non-Warranty,PM,FC01 Monroe';
+  const row2 = 'INV-0002,K123002,2026-07-21,78000,Brake Pad Replacement,Brakes,1200.00,In-House Garage,In-House,Non-Warranty,Non-PM,FC211 E Cinci Spoke';
+  const csv = header + '\n' + row1 + '\n' + row2;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'fleet_invoice_template.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
+  if (lines.length < 2) return [];
+  // Detect header to find SiteLocation column index
+  const headerCols = lines[0].split(',').map(c => c.trim().replace(/^"|"$/g, '').toLowerCase());
+  const siteColIdx = headerCols.findIndex(h => h === 'sitelocation' || h === 'site location' || h === 'site');
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 7) continue;
+    const row = {
+      invoiceNumber: cols[0] || ('INV-' + String(ALL_INVOICES.length + rows.length + 1).padStart(4, '0')),
+      unitNumber: cols[1] || '',
+      date: cols[2] || '',
+      mileage: parseInt(cols[3]) || 0,
+      description: cols[4] || '',
+      category: cols[5] || '',
+      cost: parseFloat(cols[6]) || 0,
+      vendor: cols[7] || 'Unknown',
+      serviceType: cols[8] || 'Vendor',
+      warrantyStatus: (cols[9] || 'Non-Warranty'),
+      pmStatus: (cols[10] || 'Non-PM'),
+      siteLocation: (siteColIdx >= 0 && cols[siteColIdx] ? cols[siteColIdx] : '') || (cols[11] || '') || DEFAULT_SITE,
+    };
+    // Validate siteLocation - if it doesn't match any known site, default
+    const validSiteNames = SITE_LOCATIONS.map(s => s.name);
+    if (!validSiteNames.includes(row.siteLocation)) {
+      row.siteLocation = DEFAULT_SITE;
+    }
+    row.valid = true;
+    row.errors = [];
+    if (!row.unitNumber) { row.valid = false; row.errors.push('Missing unit'); }
+    if (!row.date || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) { row.valid = false; row.errors.push('Invalid date'); }
+    if (!row.category || !CATEGORY_NAMES.includes(row.category)) { row.valid = false; row.errors.push('Invalid category'); }
+    if (row.cost <= 0) { row.valid = false; row.errors.push('Invalid cost'); }
+    if (row.mileage <= 0) { row.valid = false; row.errors.push('Invalid mileage'); }
+    if (!['Warranty', 'Non-Warranty'].includes(row.warrantyStatus)) { row.valid = false; row.errors.push('Invalid warranty status'); }
+    if (!['PM', 'Non-PM'].includes(row.pmStatus)) { row.valid = false; row.errors.push('Invalid PM status'); }
+    if (!['Vendor', 'In-House'].includes(row.serviceType)) { row.serviceType = 'Vendor'; }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function showImportPreview(rows) {
+  parsedImportRows = rows;
+  const preview = document.getElementById('import-preview');
+  const summary = document.getElementById('import-summary');
+  const tbody = document.getElementById('import-preview-body');
+  const validCount = rows.filter(r => r.valid).length;
+  const invalidCount = rows.filter(r => !r.valid).length;
+  summary.innerHTML = '<div class="flex gap-3 text-sm flex-wrap"><span class="badge badge-green">✅ ' + validCount + ' records valid</span>' +
+    (invalidCount > 0 ? '<span class="badge badge-red">⚠️ ' + invalidCount + ' records skipped</span>' : '') + '</div>';
+  const display = rows.slice(0, 10);
+  tbody.innerHTML = display.map(r => '<tr><td>' + (r.valid ? '<span class="text-green-400">✅</span>' : '<span class="text-red-400" title="' + r.errors.join(', ') + '">❌</span>') + '</td><td class="text-xs">' + r.invoiceNumber + '</td><td class="text-xs">' + r.unitNumber + '</td><td class="text-xs">' + r.date + '</td><td class="text-xs tabular-nums">' + fmtNum(r.mileage) + '</td><td class="text-xs">' + r.category + '</td><td class="text-xs text-right tabular-nums">' + fmtFull.format(r.cost) + '</td><td class="text-xs">' + r.siteLocation + '</td></tr>').join('');
+  if (rows.length > 10) {
+    tbody.innerHTML += '<tr><td colspan="8" class="text-xs text-brand-muted text-center">... and ' + (rows.length - 10) + ' more</td></tr>';
+  }
+  const importBtn = document.getElementById('btn-import-records');
+  importBtn.textContent = 'Import ' + validCount + ' Records';
+  preview.classList.remove('hidden');
+}
+
+async function importRecords() {
+  const valid = parsedImportRows.filter(r => r.valid);
+  if (valid.length === 0) { showToast('No valid records to import.', 'error'); return; }
+  for (const row of valid) {
+    const invoice = {
+      id: generateId(),
+      invoiceNumber: row.invoiceNumber,
+      date: row.date,
+      unitNumber: row.unitNumber,
+      vehicleYear: getVehicleYear(row.unitNumber),
+      mileage: row.mileage,
+      mileageBand: getMileageBand(row.mileage),
+      category: row.category,
+      description: row.description,
+      vendor: row.vendor,
+      cost: row.cost,
+      warrantyStatus: row.warrantyStatus,
+      pmStatus: row.pmStatus,
+      serviceType: row.serviceType || 'Vendor',
+      siteLocation: row.siteLocation || DEFAULT_SITE,
+      addedAt: Date.now()
+    };
+    await saveInvoice(invoice);
+  }
+  refreshDashboard();
+  closeImportModal();
+  showToast(valid.length + ' invoices imported. Dashboard updated.', 'success');
+}
+
+// ==================== EXPORT CSV ====================
+function exportCSV() {
+  const siteData = getFilteredInvoices();
+  if (siteData.length === 0) { showToast('No data to export yet.', 'warning'); return; }
+  const header = 'Invoice Number,Unit Number,Vehicle Year,Invoice Date,Mileage,Mileage Band,Repair Description,Repair Category,Repair Cost,Vendor,Service Type,Warranty Status,PM Status,Site Location';
+  const sorted = [...siteData].sort((a, b) => a.date.localeCompare(b.date));
+  const rows = sorted.map(r =>
+    [r.invoiceNumber, r.unitNumber, r.vehicleYear || '', r.date, r.mileage, getMileageBand(r.mileage),
+      '"' + (r.description || '').replace(/"/g, '""') + '"', r.category, r.cost, '"' + (r.vendor || '').replace(/"/g, '""') + '"',
+      getServiceType(r), r.warrantyStatus, r.pmStatus, getSiteLocation(r)].join(',')
+  );
+  const csv = header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'fleet_maintenance_export_2026-07-31.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported with ' + siteData.length + ' records.', 'info');
+}
+
+// ==================== EXPORT / IMPORT SITE DATA (Multi-Site Sync) ====================
+// Each FC site: click "Export My Data" → sends .json file to supervisor via email/Teams/text
+// Supervisor: click "Import Sites" → selects all sites' files → sees everyone's data combined
+
+function exportSiteData() {
+  if (ALL_INVOICES.length === 0) { showToast('No invoices to export yet. Add invoices first.', 'warning'); return; }
+  const siteLabel = (document.getElementById('global-site-filter').value !== 'All'
+    ? document.getElementById('global-site-filter').value
+    : (ALL_INVOICES[0] && ALL_INVOICES[0].siteLocation ? ALL_INVOICES[0].siteLocation : 'AllSites'));
+  const payload = { exportedAt: new Date().toISOString(), site: siteLabel, invoices: ALL_INVOICES };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = siteLabel.replace(/[^a-zA-Z0-9]/g, '_');
+  a.href = url; a.download = 'FleetData_' + safeName + '_' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Data exported! Send this file to your supervisor.', 'success');
+}
+
+async function importSiteData(files) {
+  if (!files || files.length === 0) return;
+  let totalImported = 0, totalSkipped = 0, sitesImported = [];
+
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming = Array.isArray(parsed) ? parsed : (parsed.invoices || []);
+      if (!Array.isArray(incoming) || incoming.length === 0) { showToast('⚠️ ' + file.name + ' has no invoices.', 'warning'); continue; }
+
+      const site = parsed.site || (incoming[0] && incoming[0].siteLocation) || 'Unknown';
+      if (!sitesImported.includes(site)) sitesImported.push(site);
+
+      for (const inv of incoming) {
+        if (!inv.id || !inv.invoiceNumber) { totalSkipped++; continue; }
+        if (!inv.siteLocation) inv.siteLocation = site;
+        const exists = ALL_INVOICES.findIndex(r => r.id === inv.id);
+        if (exists >= 0) { ALL_INVOICES[exists] = inv; } // update if already there
+        else { ALL_INVOICES.push(inv); totalImported++; }
+      }
+    } catch(e) { showToast('❌ Could not read ' + file.name + ': ' + e.message, 'error'); }
+  }
+
+  persistInvoices();
+  populateGlobalSiteFilter();
+  refreshDashboard();
+  if (sitesImported.length > 0) {
+    showToast('✅ Imported data from: ' + sitesImported.join(', ') + ' (' + totalImported + ' new records)', 'success');
+  }
+}
+
+// ==================== CONFIRM DIALOG ====================
+let confirmCallback = null;
+function showConfirm(title, msg, onYes) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  confirmCallback = onYes;
+  document.getElementById('confirm-dialog').style.display = 'flex';
+}
+
+// ==================== EVENT BINDING ====================
+function bindPageEvents() {
+  const unitSel = document.getElementById('unit-select');
+  if (unitSel) unitSel.addEventListener('change', e => { state.selectedUnit = e.target.value || null; renderCurrentPage(); });
+
+  document.querySelectorAll('#mileage-band-selector .mileage-band-btn').forEach(btn => {
+    btn.addEventListener('click', () => { state.selectedMileageBand = btn.dataset.band; renderCurrentPage(); });
+  });
+
+  const predGen = document.getElementById('pred-generate');
+  if (predGen) predGen.addEventListener('click', () => {
+    const sel = document.getElementById('pred-unit-select');
+    const mi = document.getElementById('pred-mileage');
+    if (sel) state.predictiveUnit = sel.value || null;
+    if (mi) state.predictiveMileage = parseInt(mi.value) || null;
+    renderCurrentPage();
+  });
+  const predUnitSel = document.getElementById('pred-unit-select');
+  if (predUnitSel) predUnitSel.addEventListener('change', e => {
+    state.predictiveUnit = e.target.value || null;
+    if (state.predictiveUnit) {
+      const siteInvoices = getFilteredInvoices();
+      const unitData = siteInvoices.filter(r => r.unitNumber === state.predictiveUnit);
+      const maxMi = unitData.length ? Math.max(...unitData.map(r => r.mileage)) : 0;
+      const miInput = document.getElementById('pred-mileage');
+      if (miInput) miInput.value = maxMi;
+      state.predictiveMileage = maxMi;
+    }
+  });
+
+  document.querySelectorAll('.empty-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => openAddModal());
+  });
+}
+
+// ==================== INIT ====================
+let debounceTimer;
+function debounceApply() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => renderCurrentPage(), 300); }
+
+async function initApp() {
+  document.getElementById('nav-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+  const catGroup = document.getElementById('filter-category-group');
+  if (catGroup) catGroup.innerHTML = CATEGORY_NAMES.map(c => '<label class="filter-checkbox"><input type="checkbox" value="' + c + '" checked> ' + c + '</label>').join('');
+
+  await loadInvoices();
+
+  // Populate global site filter
+  populateGlobalSiteFilter();
+
+  updateRecordCounter();
+  updateFooterStats();
+  updateDynamicFilters();
+
+  // Global site filter event
+  document.getElementById('global-site-filter').addEventListener('change', e => {
+    state.globalSiteFilter = e.target.value;
+    // Reset unit selections when site changes
+    state.selectedUnit = null;
+    state.predictiveUnit = null;
+    state.predictiveMileage = null;
+    refreshDashboard();
+  });
+
+  // Sidebar navigation
+  document.querySelectorAll('.sidebar-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-btn[data-page]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.currentPage = btn.dataset.page;
+      renderCurrentPage();
+      document.getElementById('sidebar').classList.remove('open');
+    });
+  });
+
+  // Filter events
+  document.getElementById('filter-date-start').addEventListener('change', e => { state.filters.dateStart = e.target.value; debounceApply(); });
+  document.getElementById('filter-date-end').addEventListener('change', e => { state.filters.dateEnd = e.target.value; debounceApply(); });
+
+  document.getElementById('filter-category-group').addEventListener('change', () => {
+    state.filters.categories = [...document.querySelectorAll('#filter-category-group input:checked')].map(c => c.value);
+    debounceApply();
+  });
+
+  document.querySelectorAll('#filter-warranty-group input').forEach(r => {
+    r.addEventListener('change', () => { state.filters.warranty = document.querySelector('#filter-warranty-group input:checked').value; debounceApply(); });
+  });
+
+  document.querySelectorAll('#filter-service-type-group input').forEach(r => {
+    r.addEventListener('change', () => { state.filters.serviceType = document.querySelector('#filter-service-type-group input:checked').value; debounceApply(); });
+  });
+
+  document.querySelectorAll('#filter-pm-group input').forEach(r => {
+    r.addEventListener('change', () => { state.filters.pm = document.querySelector('#filter-pm-group input:checked').value; debounceApply(); });
+  });
+
+  document.getElementById('filter-vendor').addEventListener('change', e => { state.filters.vendor = e.target.value; debounceApply(); });
+
+  document.getElementById('reset-filters').addEventListener('click', () => {
+    state.filters = { years: [], dateStart: '2020-01-01', dateEnd: '2035-12-31', categories: [...CATEGORY_NAMES], warranty: 'All', pm: 'All', vendor: 'All', serviceType: 'All' };
+    document.getElementById('filter-date-start').value = '2020-01-01';
+    document.getElementById('filter-date-end').value = '2035-12-31';
+    document.querySelectorAll('#filter-category-group input').forEach(c => c.checked = true);
+    document.querySelector('#filter-warranty-group input[value="All"]').checked = true;
+    document.querySelector('#filter-service-type-group input[value="All"]').checked = true;
+    document.querySelector('#filter-pm-group input[value="All"]').checked = true;
+    document.getElementById('filter-vendor').value = 'All';
+    state.selectedMileageBand = 'All';
+    // Note: global site filter is NOT reset by sidebar reset
+    updateDynamicFilters();
+    renderCurrentPage();
+  });
+
+  // Mobile sidebar
+  const mobileBtn = document.getElementById('mobile-menu-btn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarClose = document.getElementById('sidebar-close');
+  if (mobileBtn) mobileBtn.addEventListener('click', () => { sidebar.classList.add('open'); sidebar.classList.remove('hidden'); sidebar.classList.add('block'); });
+  if (sidebarClose) sidebarClose.addEventListener('click', () => { sidebar.classList.remove('open'); });
+
+  // Navbar buttons
+  document.getElementById('btn-open-add').addEventListener('click', () => openAddModal());
+  document.getElementById('btn-open-import').addEventListener('click', () => openImportModal());
+  document.getElementById('btn-export-csv').addEventListener('click', () => exportCSV());
+
+  // Multi-site Export/Import
+  document.getElementById('btn-export-site').addEventListener('click', () => exportSiteData());
+  document.getElementById('btn-import-site').addEventListener('click', () => {
+    document.getElementById('site-data-file-input').value = '';
+    document.getElementById('site-data-file-input').click();
+  });
+  document.getElementById('site-data-file-input').addEventListener('change', e => {
+    importSiteData(Array.from(e.target.files));
+  });
+
+  // Add Invoice Modal
+  document.getElementById('close-add-modal').addEventListener('click', closeAddModal);
+  document.getElementById('btn-cancel-add').addEventListener('click', closeAddModal);
+  document.getElementById('btn-save-invoice').addEventListener('click', () => saveInvoiceForm(false));
+  document.getElementById('btn-save-add-another').addEventListener('click', () => saveInvoiceForm(true));
+
+  // Toggle buttons
+  document.getElementById('toggle-warranty-yes').addEventListener('click', () => { addModalWarranty = 'Warranty'; updateToggleButtons(); });
+  document.getElementById('toggle-warranty-no').addEventListener('click', () => { addModalWarranty = 'Non-Warranty'; updateToggleButtons(); });
+  document.getElementById('toggle-pm-yes').addEventListener('click', () => { addModalPm = 'PM'; updateToggleButtons(); });
+  document.getElementById('toggle-pm-no').addEventListener('click', () => { addModalPm = 'Non-PM'; updateToggleButtons(); });
+
+  document.getElementById('toggle-service-vendor').addEventListener('click', () => {
+    addModalServiceType = 'Vendor';
+    updateToggleButtons();
+    updateVendorFieldLabel();
+  });
+  document.getElementById('toggle-service-inhouse').addEventListener('click', () => {
+    addModalServiceType = 'In-House';
+    updateToggleButtons();
+    updateVendorFieldLabel();
+  });
+
+  // Auto-detect vehicle year
+  document.getElementById('add-inv-unit').addEventListener('input', e => {
+    const unit = e.target.value.trim();
+    const yearField = document.getElementById('add-inv-year');
+    const detected = getVehicleYear(unit);
+    if (detected) {
+      yearField.value = detected;
+      yearField.readOnly = true;
+      yearField.style.opacity = '0.7';
+      yearField.style.cursor = 'default';
+    } else {
+      yearField.value = '';
+      yearField.readOnly = false;
+      yearField.style.opacity = '1';
+      yearField.style.cursor = 'text';
+      yearField.placeholder = 'Enter manually';
+    }
+  });
+
+  // Category → auto-suggest description & PM
+  document.getElementById('add-inv-category').addEventListener('change', e => {
+    const cat = e.target.value;
+    const descField = document.getElementById('add-inv-desc');
+    if (cat && CATEGORY_DESCS[cat] && !descField.value.trim()) {
+      descField.value = CATEGORY_DESCS[cat][0];
+    }
+    if (cat && PM_CATEGORIES.includes(cat)) {
+      addModalPm = 'PM';
+    } else if (cat) {
+      addModalPm = 'Non-PM';
+    }
+    updateToggleButtons();
+  });
+
+  // Import Modal
+  document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
+  document.getElementById('btn-download-template').addEventListener('click', downloadTemplate);
+
+  document.getElementById('tab-upload-file').addEventListener('click', () => {
+    document.getElementById('tab-upload-file').classList.add('active');
+    document.getElementById('tab-paste-csv').classList.remove('active');
+    document.getElementById('import-tab-upload').classList.remove('hidden');
+    document.getElementById('import-tab-paste').classList.add('hidden');
+  });
+  document.getElementById('tab-paste-csv').addEventListener('click', () => {
+    document.getElementById('tab-paste-csv').classList.add('active');
+    document.getElementById('tab-upload-file').classList.remove('active');
+    document.getElementById('import-tab-paste').classList.remove('hidden');
+    document.getElementById('import-tab-upload').classList.add('hidden');
+  });
+
+  const dropZone = document.getElementById('csv-drop-zone');
+  const fileInput = document.getElementById('csv-file-input');
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) readCSVFile(file);
+  });
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) readCSVFile(file);
+  });
+
+  function readCSVFile(file) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = parseCSV(ev.target.result);
+      showImportPreview(rows);
+    };
+    reader.readAsText(file);
+  }
+
+  document.getElementById('btn-parse-pasted').addEventListener('click', () => {
+    const text = document.getElementById('csv-paste-area').value;
+    if (!text.trim()) { showToast('Please paste CSV data first.', 'error'); return; }
+    const rows = parseCSV(text);
+    showImportPreview(rows);
+  });
+
+  document.getElementById('btn-import-records').addEventListener('click', () => importRecords());
+
+  // Confirm dialog
+  document.getElementById('confirm-yes').addEventListener('click', () => {
+    document.getElementById('confirm-dialog').style.display = 'none';
+    if (confirmCallback) confirmCallback();
+    confirmCallback = null;
+  });
+  document.getElementById('confirm-no').addEventListener('click', () => {
+    document.getElementById('confirm-dialog').style.display = 'none';
+    confirmCallback = null;
+  });
+
+  // Close modals on backdrop
+  document.getElementById('add-invoice-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('add-invoice-modal')) closeAddModal();
+  });
+  document.getElementById('import-csv-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('import-csv-modal')) closeImportModal();
+  });
+  document.getElementById('confirm-dialog').addEventListener('click', e => {
+    if (e.target === document.getElementById('confirm-dialog')) {
+      document.getElementById('confirm-dialog').style.display = 'none';
+      confirmCallback = null;
+    }
+  });
+
+  if (typeof lucide !== "undefined" && typeof lucide.createIcons === "function") lucide.createIcons();
+
+  renderCurrentPage();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+</script>
+</body>
+</html>
